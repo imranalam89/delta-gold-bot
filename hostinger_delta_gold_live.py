@@ -611,6 +611,7 @@ class LiveDashboardHandler(SimpleHTTPRequestHandler):
                 "port": CONFIG["PORT"],
                 "symbol": CONFIG["SYMBOL"],
                 "leverage": f"{CONFIG['LEVERAGE']}x",
+                "fixed_risk_usd": CONFIG["FIXED_RISK_USD"],
                 "strategy": "#1 Merged Super-Champion (>=4/6 + 15m Sniper)",
                 "rules": "0.85x Dynamic SL, 50x Lots, 180m Time Cycle Exit, 40R Chandelier Trail",
                 "engine_active": MARKET.engine_active,
@@ -643,8 +644,27 @@ class LiveDashboardHandler(SimpleHTTPRequestHandler):
             MARKET.engine_active = not MARKET.engine_active
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(json.dumps({"engine_active": MARKET.engine_active}).encode("utf-8"))
+            return
+
+        elif parsed.path == "/api/risk":
+            qs = parse_qs(parsed.query)
+            amt = None
+            if "amount" in qs:
+                try:
+                    amt = float(qs["amount"][0])
+                except ValueError:
+                    pass
+            if amt is not None and amt > 0:
+                CONFIG["FIXED_RISK_USD"] = amt
+                print(f"[OPERATOR CONTROL] Fixed Risk updated to ${amt:.2f} per trade.")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": True, "fixed_risk_usd": CONFIG["FIXED_RISK_USD"]}).encode("utf-8"))
             return
 
     def render_dashboard_html(self) -> str:

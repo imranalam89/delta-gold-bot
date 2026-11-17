@@ -133,10 +133,10 @@ body { background-color: #07090e; color: #f1f5f9; font-family: system-ui, -apple
         Contracts dynamically calculated: Lots = round((Risk / SL_dist) * 1000).
       </p>
       <div class="flex items-center gap-2 flex-wrap pt-1 text-xs">
-        <button onclick="setRiskAmount(1.0)" class="btn-risk px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold transition">$1</button>
-        <button onclick="setRiskAmount(3.0)" class="btn-risk px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold transition">$3</button>
-        <button onclick="setRiskAmount(5.0)" class="btn-risk px-3 py-1.5 rounded-xl bg-rose-600 text-white border border-rose-500 font-bold transition shadow-lg shadow-rose-600/30">$5 (Default)</button>
-        <button onclick="setRiskAmount(10.0)" class="btn-risk px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold transition">$10</button>
+        <button id="btnRisk1" onclick="setRiskAmount(1.0)" class="btn-risk px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold transition">$1</button>
+        <button id="btnRisk3" onclick="setRiskAmount(3.0)" class="btn-risk px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold transition">$3</button>
+        <button id="btnRisk5" onclick="setRiskAmount(5.0)" class="btn-risk px-3 py-1.5 rounded-xl bg-rose-600 text-white border border-rose-500 font-bold transition shadow-lg shadow-rose-600/30">$5 (Default)</button>
+        <button id="btnRisk10" onclick="setRiskAmount(10.0)" class="btn-risk px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold transition">$10</button>
       </div>
     </div>
 
@@ -471,6 +471,22 @@ async function refreshData() {
       document.getElementById('botStatusText').innerText = engineActive ? 'ACTIVE (Scanning Delta XAUTUSD)' : 'PAUSED (Orders Frozen)';
       document.getElementById('btnToggleBotText').innerText = engineActive ? 'Pause Bot (Freeze Orders)' : 'Resume Engine';
 
+      if (data.fixed_risk_usd !== undefined) {
+        currentRisk = data.fixed_risk_usd;
+        document.getElementById('currentRiskBadge').innerText = `$${currentRisk.toFixed(2)} / Trade (Fixed)`;
+        document.getElementById('statRiskUsd').innerText = `$${currentRisk.toFixed(2)}`;
+        [1.0, 3.0, 5.0, 10.0].forEach(val => {
+          const btn = document.getElementById(`btnRisk${parseInt(val)}`);
+          if (btn) {
+            if (val === currentRisk) {
+              btn.className = 'btn-risk px-3 py-1.5 rounded-xl bg-rose-600 text-white border border-rose-500 font-bold transition shadow-lg shadow-rose-600/30';
+            } else {
+              btn.className = 'btn-risk px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold transition';
+            }
+          }
+        });
+      }
+
       // Active Position
       const pos = data.active_position;
       const posBox = document.getElementById('activePositionBox');
@@ -528,10 +544,27 @@ async function toggleEngine(forceResume = false) {
   }
 }
 
-function setRiskAmount(amt) {
-  currentRisk = amt;
-  document.getElementById('currentRiskBadge').innerText = `$${amt.toFixed(2)} / Trade (Fixed)`;
-  document.getElementById('statRiskUsd').innerText = `$${amt.toFixed(2)}`;
+async function setRiskAmount(amt) {
+  try {
+    const res = await fetch(`/api/risk?amount=${amt}`, { method: 'POST' });
+    if (res.ok) {
+      currentRisk = amt;
+      document.getElementById('currentRiskBadge').innerText = `$${amt.toFixed(2)} / Trade (Fixed)`;
+      document.getElementById('statRiskUsd').innerText = `$${amt.toFixed(2)}`;
+      [1.0, 3.0, 5.0, 10.0].forEach(val => {
+        const btn = document.getElementById(`btnRisk${parseInt(val)}`);
+        if (btn) {
+          if (val === amt) {
+            btn.className = 'btn-risk px-3 py-1.5 rounded-xl bg-rose-600 text-white border border-rose-500 font-bold transition shadow-lg shadow-rose-600/30';
+          } else {
+            btn.className = 'btn-risk px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold transition';
+          }
+        }
+      });
+    }
+  } catch (e) {
+    console.log('Set risk error:', e);
+  }
 }
 
 // Auto-refresh every 3 seconds
