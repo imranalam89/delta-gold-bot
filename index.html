@@ -1,0 +1,1668 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MUX_085SL_ADAPTIVE_CHANDELIER_TRAIL — 👑 BASELINE CHAMPION (Current System — Locked & Untouched)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&family=Orbitron:wght@600;700;800;900&family=Rajdhani:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-space: #050a14;
+      --bg-card: #081120;
+      --gold: #f59e0b;
+      --cyan: #00f2fe;
+      --emerald: #00ffa3;
+      --magenta: #ff007f;
+      --purple: #a855f7;
+      --coral: #ff4757;
+      --blue: #00a8ff;
+      --lime: #a3e635;
+      --orange: #fb923c;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      background-color: var(--bg-space);
+      color: #f1f5f9;
+      font-family: 'Rajdhani', -apple-system, sans-serif;
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      background-image: 
+        radial-gradient(circle at 12% 45%, rgba(0, 242, 254, 0.07) 0%, transparent 45%),
+        radial-gradient(circle at 88% 30%, rgba(168, 85, 247, 0.06) 0%, transparent 45%),
+        radial-gradient(circle at 50% 90%, rgba(0, 255, 163, 0.04) 0%, transparent 50%),
+        radial-gradient(circle, rgba(0, 242, 254, 0.09) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 100% 100%, 28px 28px;
+    }
+    .font-hud { font-family: 'Orbitron', monospace; }
+    .font-mono-code { font-family: 'JetBrains Mono', monospace; }
+    .font-chakra { font-family: 'Chakra Petch', sans-serif; }
+
+    /* Orbital HUD Spin (Strictly centered at 0px 0px local SVG coordinates to prevent any jitter) */
+    @keyframes spinClockwise {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    @keyframes spinCounterClockwise {
+      from { transform: rotate(360deg); }
+      to { transform: rotate(0deg); }
+    }
+    .spin-cw {
+      transform-origin: 0px 0px;
+      animation: spinClockwise 24s linear infinite;
+    }
+    .spin-ccw {
+      transform-origin: 0px 0px;
+      animation: spinCounterClockwise 18s linear infinite;
+    }
+    .glow-pulse {
+      animation: glowPulseAnim 3.5s ease-in-out infinite alternate;
+    }
+    @keyframes glowPulseAnim {
+      0% { filter: drop-shadow(0 0 3px rgba(0,242,254,0.3)); }
+      100% { filter: drop-shadow(0 0 9px rgba(0,242,254,0.6)); }
+    }
+
+    /* Cable & Photon Styling */
+    .fiber-cable {
+      fill: none;
+      stroke-linecap: round;
+      transition: stroke-width 0.25s ease, stroke-opacity 0.25s ease, stroke 0.25s ease;
+    }
+    .fiber-cable:hover {
+      stroke-opacity: 1 !important;
+      stroke-width: 3.5px !important;
+      filter: drop-shadow(0 0 8px currentColor);
+    }
+
+    /* Solid Rock-Steady Node Hover (ZERO Bouncing, NO transform:scale) */
+    .node-group {
+      cursor: pointer;
+    }
+    .node-group .hit-area {
+      pointer-events: all;
+    }
+    .node-group .core-circle {
+      transition: stroke-width 0.2s ease, filter 0.2s ease;
+    }
+    .node-group:hover .core-circle {
+      stroke-width: 3.8px !important;
+      filter: drop-shadow(0 0 12px currentColor);
+    }
+    .node-group:hover .node-name {
+      filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.9));
+    }
+
+    /* Glass Panels */
+    .cyber-panel {
+      background: rgba(7, 14, 28, 0.94);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(0, 242, 254, 0.25);
+    }
+    .scrollbar-cyber::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .scrollbar-cyber::-webkit-scrollbar-track {
+      background: rgba(2, 6, 16, 0.8);
+    }
+    .scrollbar-cyber::-webkit-scrollbar-thumb {
+      background: #00f2fe;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="w-screen h-screen overflow-hidden select-none">
+
+  <!-- ========================================================================= -->
+  <!-- 1. COMPACT HUD HEADER (EXACT VIEWPORT FIT, ZERO SCROLL REQUIRED)          -->
+  <!-- ========================================================================= -->
+  <header class="h-[60px] flex-shrink-0 z-30 cyber-panel border-b border-cyan-500/30 px-5 flex items-center justify-between shadow-[0_4px_25px_rgba(0,0,0,0.85)]">
+    
+    <!-- Left: Strategy Badge & Title -->
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500/25 via-cyan-500/20 to-purple-500/25 border-2 border-amber-400/70 flex items-center justify-center font-hud text-amber-300 font-extrabold text-xs shadow-[0_0_12px_rgba(245,158,11,0.4)]">
+        Au
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="px-1.5 py-0.5 text-[8.5px] font-hud font-extrabold rounded bg-amber-500/20 text-amber-300 border border-amber-400/60 flex items-center gap-1 shadow-[0_0_8px_rgba(245,158,11,0.3)]">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span>
+            👑 BASELINE CHAMPION
+          </span>
+          <h1 class="font-hud font-bold text-xs tracking-wider text-white flex items-center gap-1.5">
+            MUX_085SL_ADAPTIVE_CHANDELIER_TRAIL
+            <span class="text-[8.5px] font-mono text-emerald-300 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-500/40">
+              LOCKED &amp; UNTOUCHED
+            </span>
+          </h1>
+        </div>
+        <p class="text-[10px] text-slate-400 font-mono flex items-center gap-1.5 leading-none mt-1">
+          <span>COMEX Gold <code class="text-amber-300 font-bold">GC/MGC</code></span>
+          <span>&bull;</span>
+          <span>Databento <code class="text-sky-300 font-bold">MBP-10</code> L2 Depth</span>
+          <span>&bull;</span>
+          <span>Tradovate Direct Execution</span>
+          <span>&bull;</span>
+          <span class="text-cyan-400 font-semibold">0.85x ATR SL &bull; 40R Adaptive Chandelier Trail &bull; 16-Agent Neural Hierarchy</span>
+        </p>
+      </div>
+    </div>
+
+    <!-- Center: Quick Metrics Pills -->
+    <div class="hidden xl:flex items-center gap-2 text-xs font-mono">
+      <div class="bg-slate-900/90 border border-cyan-500/35 rounded-lg px-3 py-1 flex items-center gap-3 shadow-md">
+        <div>
+          <span class="text-slate-400 text-[8px] uppercase tracking-wider block leading-none">EXECUTIONS</span>
+          <span class="font-hud font-bold text-xs text-cyan-300 leading-tight">265 Trades</span>
+        </div>
+        <div class="h-4 w-px bg-slate-800"></div>
+        <div>
+          <span class="text-slate-400 text-[8px] uppercase tracking-wider block leading-none">WIN RATE</span>
+          <span class="font-hud font-bold text-xs text-emerald-400 leading-tight">62.64% <span class="text-[9px] text-slate-400 font-sans font-normal">(166W/99L)</span></span>
+        </div>
+        <div class="h-4 w-px bg-slate-800"></div>
+        <div>
+          <span class="text-slate-400 text-[8px] uppercase tracking-wider block leading-none">NET PROFIT</span>
+          <span class="font-hud font-bold text-xs text-amber-400 leading-tight">+$605.40</span>
+        </div>
+        <div class="h-4 w-px bg-slate-800"></div>
+        <div>
+          <span class="text-slate-400 text-[8px] uppercase tracking-wider block leading-none">ENDING EQUITY</span>
+          <span class="font-hud font-bold text-xs text-emerald-300 leading-tight">$705.40 <span class="text-[9px] text-amber-300">(7.05X!)</span></span>
+        </div>
+        <div class="h-4 w-px bg-slate-800"></div>
+        <div>
+          <span class="text-slate-400 text-[8px] uppercase tracking-wider block leading-none">PROFIT FACTOR</span>
+          <span class="font-hud font-bold text-xs text-amber-300 leading-tight">2.25 PF</span>
+        </div>
+        <div class="h-4 w-px bg-slate-800"></div>
+        <div>
+          <span class="text-slate-400 text-[8px] uppercase tracking-wider block leading-none">OOS PROFIT</span>
+          <span class="font-hud font-bold text-xs text-cyan-300 leading-tight">+$199.78 <span class="text-[9px] text-slate-400 font-sans font-normal">(81 Trd)</span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Action Buttons -->
+    <div class="flex items-center gap-2">
+      <button onclick="triggerLaserSurge()" class="px-2.5 py-1.5 rounded-lg text-[10.5px] font-hud font-bold bg-gradient-to-r from-cyan-500 via-emerald-400 to-amber-400 hover:brightness-110 text-slate-950 flex items-center gap-1 shadow-[0_0_12px_rgba(0,242,254,0.4)] transition">
+        <span>⚡</span> PULSE FIBERS
+      </button>
+      <button onclick="openDrawer('tradesDrawer')" class="px-2.5 py-1.5 rounded-lg text-[10.5px] font-hud font-semibold bg-slate-900 border border-slate-700 hover:border-cyan-400 text-slate-200 transition">
+        📋 265 Trades
+      </button>
+      <button onclick="openDrawer('matrixDrawer')" class="px-2.5 py-1.5 rounded-lg text-[10.5px] font-hud font-semibold bg-slate-900 border border-slate-700 hover:border-cyan-400 text-slate-200 transition">
+        📡 Routing Matrix
+      </button>
+    </div>
+  </header>
+
+  <!-- ========================================================================= -->
+  <!-- 2. SUB-BAR: DOMAIN FILTER PILLS (INTEGRATED & COMPACT)                     -->
+  <!-- ========================================================================= -->
+  <div class="h-[32px] flex-shrink-0 z-20 bg-[#040814]/90 border-b border-slate-800/80 px-5 flex items-center justify-between text-xs font-mono">
+    <div class="flex items-center gap-1.5 overflow-x-auto">
+      <span class="text-cyan-400 font-hud font-bold text-[8.5px] uppercase tracking-wider mr-1">FILTER DOMAINS:</span>
+      <button onclick="filterDomain('ALL')" id="filter-ALL" class="domain-btn px-2 py-0.5 rounded bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 font-bold transition text-[9.5px]">
+        ALL 16 AGENTS
+      </button>
+      <button onclick="filterDomain('COMMAND')" id="filter-COMMAND" class="domain-btn px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30 hover:bg-amber-500/20 transition flex items-center gap-1 text-[9.5px]">
+        <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> 1. COMMAND
+      </button>
+      <button onclick="filterDomain('RISK_MATH')" id="filter-RISK_MATH" class="domain-btn px-2 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/30 hover:bg-purple-500/20 transition flex items-center gap-1 text-[9.5px]">
+        <span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span> 2. RISK, PSYCH &amp; MATH
+      </button>
+      <button onclick="filterDomain('MACRO')" id="filter-MACRO" class="domain-btn px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/20 transition flex items-center gap-1 text-[9.5px]">
+        <span class="w-1.5 h-1.5 rounded-full bg-indigo-400"></span> 3. MACRO &amp; NEWS
+      </button>
+      <button onclick="filterDomain('ORDER_FLOW')" id="filter-ORDER_FLOW" class="domain-btn px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/20 transition flex items-center gap-1 text-[9.5px]">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> 4. ORDER FLOW &amp; L2
+      </button>
+      <button onclick="filterDomain('PRICE_ACTION')" id="filter-PRICE_ACTION" class="domain-btn px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/20 transition flex items-center gap-1 text-[9.5px]">
+        <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span> 5. PRICE ACTION &amp; SMC
+      </button>
+    </div>
+
+    <!-- Scenarios -->
+    <div class="hidden lg:flex items-center gap-1.5">
+      <span class="text-amber-400 font-hud font-bold text-[8.5px] uppercase tracking-wider mr-1">SCENARIOS:</span>
+      <button onclick="simulateScenario('pipeline')" class="px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/30 transition text-[9px] font-bold">
+        ⚡ 1. Full Trade Pipeline
+      </button>
+      <button onclick="simulateScenario('bypass')" id="btn-bypass" class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/60 hover:bg-emerald-500/30 transition text-[9px] font-bold flex items-center gap-1 shadow-[0_0_10px_rgba(0,255,163,0.3)]">
+        <span>🛡️</span> 2. LLM News Bypass (Direct Quant Route)
+      </button>
+      <button onclick="simulateScenario('fomc')" class="px-2 py-0.5 rounded bg-pink-500/15 text-pink-300 border border-pink-500/30 hover:bg-pink-500/30 transition text-[9px]">
+        🛡️ 3. News Lockout (Clara Veto)
+      </button>
+      <button onclick="simulateScenario('runner')" class="px-2 py-0.5 rounded bg-purple-500/15 text-purple-300 border border-purple-500/30 hover:bg-purple-500/30 transition text-[9px]">
+        🚀 4. 40R Trail Runner
+      </button>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- 3. MAIN COCKPIT DIAGRAM (100% VIEWPORT FIT — ZERO VERTICAL SCROLL)         -->
+  <!-- ========================================================================= -->
+  <main class="flex-1 min-h-0 w-full flex items-center justify-center p-2 relative overflow-hidden">
+    <svg id="networkSvg" class="w-full h-full max-h-[calc(100vh-96px)]" viewBox="0 0 1520 635" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <!-- Pure Dark Obsidian Center Fills (Ensures 100% Crisp White Text Legibility) -->
+        <radialGradient id="gradMaster" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#091424" />
+          <stop offset="85%" stop-color="#050a14" />
+          <stop offset="100%" stop-color="#f59e0b" stop-opacity="0.25" />
+        </radialGradient>
+        <radialGradient id="gradNode" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#081426" />
+          <stop offset="85%" stop-color="#040913" />
+          <stop offset="100%" stop-color="#00f2fe" stop-opacity="0.20" />
+        </radialGradient>
+
+        <!-- Drop Shadows & Glow Filters -->
+        <filter id="glowCyan" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="4" result="blur" />
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+        <filter id="glowGold" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="5" result="blur" />
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+      </defs>
+
+      <!-- HIERARCHICAL COLUMN HEADERS (MAKES SYSTEM TRULY EASY TO EXPLAIN) -->
+      <g id="columnHeadersLayer" opacity="0.85">
+        <!-- Col 1 Header -->
+        <g transform="translate(115, 24)">
+          <rect x="-76" y="-12" width="152" height="24" rx="4" fill="#0b172a" stroke="#f59e0b" stroke-width="1.2" opacity="0.9"/>
+          <text x="0" y="4" text-anchor="middle" font-family="'Orbitron', monospace" font-size="9" font-weight="900" fill="#f59e0b" letter-spacing="0.5">
+            1. COMMAND BOSS (SEO)
+          </text>
+        </g>
+
+        <!-- Col 2 Header -->
+        <g transform="translate(350, 24)">
+          <rect x="-95" y="-12" width="190" height="24" rx="4" fill="#0b172a" stroke="#a855f7" stroke-width="1.2" opacity="0.9"/>
+          <text x="0" y="4" text-anchor="middle" font-family="'Orbitron', monospace" font-size="8.8" font-weight="900" fill="#c084fc" letter-spacing="0.5">
+            2. RISK, PSYCH &amp; MATH
+          </text>
+        </g>
+
+        <!-- Col 3 Header -->
+        <g transform="translate(610, 24)">
+          <rect x="-85" y="-12" width="170" height="24" rx="4" fill="#0b172a" stroke="#38bdf8" stroke-width="1.2" opacity="0.9"/>
+          <text x="0" y="4" text-anchor="middle" font-family="'Orbitron', monospace" font-size="8.8" font-weight="900" fill="#38bdf8" letter-spacing="0.5">
+            3. MACRO &amp; NEWS REGIME
+          </text>
+        </g>
+
+        <!-- Col 4 Header -->
+        <g transform="translate(870, 24)">
+          <rect x="-85" y="-12" width="170" height="24" rx="4" fill="#0b172a" stroke="#10b981" stroke-width="1.2" opacity="0.9"/>
+          <text x="0" y="4" text-anchor="middle" font-family="'Orbitron', monospace" font-size="8.8" font-weight="900" fill="#34d399" letter-spacing="0.5">
+            4. ORDER FLOW &amp; L2 DOM
+          </text>
+        </g>
+
+        <!-- Col 5 & 6 Header -->
+        <g transform="translate(1255, 24)">
+          <rect x="-140" y="-12" width="280" height="24" rx="4" fill="#0b172a" stroke="#00f2fe" stroke-width="1.2" opacity="0.9"/>
+          <text x="0" y="4" text-anchor="middle" font-family="'Orbitron', monospace" font-size="8.8" font-weight="900" fill="#22d3ee" letter-spacing="0.5">
+            5. PRICE ACTION, FIB &amp; SMC EXPERTS
+          </text>
+        </g>
+      </g>
+
+      <!-- LAYER 1: OPTIC FIBER CABLES -->
+      <g id="cablesLayer"></g>
+
+      <!-- LAYER 2: ANIMATED TRAVELING PHOTONS -->
+      <g id="photonsLayer"></g>
+
+      <!-- LAYER 3: 16 HOLOGRAPHIC AGENT HUBS -->
+      <g id="nodesLayer"></g>
+    </svg>
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- 4. BOTTOM TELEMETRY DOCK (NON-INTRUSIVE, ZERO OBSTRUCTION TO DIAGRAM)     -->
+  <!-- ========================================================================= -->
+  <div id="inspectorBottomDock" class="fixed bottom-0 left-0 right-0 z-40 cyber-panel border-t-2 border-cyan-500/50 transition-all duration-300 transform translate-y-full shadow-[0_-15px_40px_rgba(0,0,0,0.9)] max-h-[220px]">
+    <div class="max-w-[1920px] mx-auto px-6 py-2.5">
+      
+      <!-- Dock header -->
+      <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+        <div class="flex items-center gap-3">
+          <div id="dockAgentIcon" class="w-8 h-8 rounded-lg bg-cyan-950/80 border border-cyan-400 flex items-center justify-center text-cyan-300 font-hud text-sm">
+            #01
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 id="dockAgentName" class="font-hud font-bold text-sm text-white">#01 VICTOR (SEO)</h2>
+              <span id="dockDomainBadge" class="px-2 py-0.5 rounded text-[9px] font-chakra font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/50">
+                SEO
+              </span>
+              <span id="dockTierBadge" class="px-2 py-0.5 rounded text-[9px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/40">
+                TIER 1: DESK COMMAND
+              </span>
+              <span id="dockStatusBadge" class="px-2 py-0.5 rounded text-[9px] font-mono text-emerald-300 bg-emerald-950/80 border border-emerald-500/40">
+                ACTIVE VOTE: 15.8 CONFIRMED
+              </span>
+            </div>
+            <p id="dockAgentWork" class="text-xs text-slate-400 font-mono">
+              Floor Desk Command &bull; Synthesizes all 15 agents &bull; Issues order tokens to RYAN
+            </p>
+          </div>
+        </div>
+
+        <button onclick="closeInspector()" class="px-3 py-1 text-xs font-hud font-bold text-slate-300 hover:text-white bg-slate-900 border border-slate-700 hover:border-rose-500 rounded-lg transition flex items-center gap-1.5">
+          <span>✕</span> CLOSE DOCK
+        </button>
+      </div>
+
+      <!-- Dock Content: 3-column layout -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2.5 text-xs font-mono">
+        
+        <!-- Column 1: Algorithmic Edge -->
+        <div class="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
+          <span class="text-slate-400 text-[10px] uppercase font-hud block mb-1 text-cyan-400">ROLE &amp; FUNCTION IN PIPELINE</span>
+          <p id="dockAlgoDesc" class="text-slate-300 text-xs leading-relaxed">
+            Synthesizes inputs from all 15 floor specialists. Requires >= 13.0 threshold. Checks veto flags from Arthur, Clara, and David before granting Tradovate order token.
+          </p>
+        </div>
+
+        <!-- Column 2: Inbound / Outbound Conduits -->
+        <div class="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
+          <span class="text-slate-400 text-[10px] uppercase font-hud block mb-1 text-emerald-400">DATA SHARING CONDUITS (WHO SHARES WITH WHOM)</span>
+          <div class="space-y-1 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-400">Receives Data From (Inbound):</span>
+              <span id="dockInboundCount" class="text-emerald-300 font-bold truncate max-w-[220px]">3 Gateways</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-400">Transmits Data To (Outbound):</span>
+              <span id="dockOutboundCount" class="text-cyan-300 font-bold truncate max-w-[220px]">1 Token (RYAN)</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-400">Conduit Latency:</span>
+              <span id="dockLatency" class="text-amber-300 font-bold">0.40 ms (Shared Mem)</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Column 3: Live Blackboard State -->
+        <div class="bg-slate-950/60 p-2.5 rounded-lg border border-slate-800">
+          <span class="text-slate-400 text-[10px] uppercase font-hud block mb-1 text-purple-400">LIVE BLACKBOARD TELEMETRY</span>
+          <pre id="dockTelemetryJson" class="text-[10px] font-mono-code text-cyan-300 overflow-x-auto whitespace-pre leading-tight">
+{ "score": 15.8, "veto": "CLEAR", "state": "PRIMED" }
+          </pre>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Dock Toggle Button (Visible when dock is closed) -->
+  <div id="openDockBar" class="fixed bottom-2 right-4 z-30">
+    <button onclick="selectNode('victor')" class="px-3 py-1.5 rounded-lg text-xs font-hud font-bold bg-cyan-950/90 hover:bg-cyan-900 border border-cyan-400/60 text-cyan-300 shadow-[0_0_15px_rgba(0,242,254,0.3)] transition flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+      ▲ Open Agent Telemetry Dock
+    </button>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- 5. DRAWERS: TRADES LEDGER & ROUTING MATRIX MODALS                         -->
+  <!-- ========================================================================= -->
+  
+  <!-- Trades Drawer -->
+  <div id="tradesDrawer" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-6">
+    <div class="w-full max-w-5xl h-[85vh] cyber-panel rounded-2xl flex flex-col overflow-hidden border border-cyan-500/50 shadow-2xl">
+      <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+        <div>
+          <h2 class="font-hud font-bold text-base text-white flex items-center gap-2">
+            📋 265 TRADES LEDGER &bull; BASELINE CHAMPION
+          </h2>
+          <p class="text-xs text-slate-400 font-mono mt-0.5">
+            62.64% Win Rate &bull; +$605.40 Net &bull; $705.40 Equity &bull; 2.25 PF &bull; OOS +$199.78
+          </p>
+        </div>
+        <button onclick="closeDrawer('tradesDrawer')" class="text-slate-400 hover:text-white font-hud text-lg px-3 py-1 bg-slate-900 border border-slate-700 rounded-lg">✕</button>
+      </div>
+      <div class="flex-1 overflow-y-auto scrollbar-cyber p-4">
+        <table class="w-full text-left text-xs font-mono border-collapse">
+          <thead class="sticky top-0 bg-slate-900/95 text-cyan-300 font-hud text-[11px] border-b border-cyan-500/40">
+            <tr>
+              <th class="p-2">#</th>
+              <th class="p-2">TIME</th>
+              <th class="p-2">DIR</th>
+              <th class="p-2">PLAYBOOK</th>
+              <th class="p-2">INITIATOR</th>
+              <th class="p-2">R-MULT</th>
+              <th class="p-2">P&amp;L ($)</th>
+              <th class="p-2">EXIT REASON</th>
+              <th class="p-2">EQUITY</th>
+            </tr>
+          </thead>
+          <tbody id="tradesTableBody" class="divide-y divide-slate-800/60">
+            <!-- Populated by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Routing Matrix Drawer -->
+  <div id="matrixDrawer" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-6">
+    <div class="w-full max-w-4xl h-[80vh] cyber-panel rounded-2xl flex flex-col overflow-hidden border border-cyan-500/50 shadow-2xl">
+      <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+        <div>
+          <h2 class="font-hud font-bold text-base text-white flex items-center gap-2">
+            📡 16-AGENT INTER-NEURAL ROUTING CONDUIT MATRIX (WHO SHARES WITH WHOM)
+          </h2>
+          <p class="text-xs text-slate-400 font-mono mt-0.5">
+            Flow: 6 Price Action Specialists &rarr; 3 Order Flow Experts &rarr; 2 Macro/News Gateways &rarr; 4 Risk, Psych &amp; Math &rarr; Victor &rarr; Ryan
+          </p>
+        </div>
+        <button onclick="closeDrawer('matrixDrawer')" class="text-slate-400 hover:text-white font-hud text-lg px-3 py-1 bg-slate-900 border border-slate-700 rounded-lg">✕</button>
+      </div>
+      <div class="flex-1 overflow-y-auto scrollbar-cyber p-6 text-xs font-mono">
+        <table class="w-full text-left border-collapse">
+          <thead class="sticky top-0 bg-slate-900/95 text-cyan-300 font-hud text-[11px] border-b border-cyan-500/40">
+            <tr>
+              <th class="p-2.5">TRANSMITTING AGENT</th>
+              <th class="p-2.5">ROLE &amp; FUNCTION</th>
+              <th class="p-2.5">DATA SHARING CONDUIT SIGNAL</th>
+              <th class="p-2.5">RECEIVING AGENT</th>
+              <th class="p-2.5">RECEIVER ROLE</th>
+            </tr>
+          </thead>
+          <tbody id="routingMatrixBody" class="divide-y divide-slate-800/60">
+            <!-- Populated by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- 6. DATA STRUCTURES & SVG RENDERING ENGINE (LOGICAL HIERARCHY)             -->
+  <!-- ========================================================================= -->
+  <script>
+    // 265 Verified Trades
+    const TRADES_DATA = [{"id":1,"t":"2026-06-01 17:04","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.48,"ex":"STOP_LOSS","ep":4506.4,"xp":4515.75,"sess":"NEW_YORK","oos":0,"eq":94.52},{"id":2,"t":"2026-06-02 02:32","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.48,"ex":"STOP_LOSS","ep":4511,"xp":4520.35,"sess":"ASIA","oos":0,"eq":89.04},{"id":3,"t":"2026-06-02 13:41","d":"LONG","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":-1,"pnl":-5.6,"ex":"STOP_LOSS","ep":4541.9,"xp":4534.31,"sess":"NEW_YORK","oos":0,"eq":83.44},{"id":4,"t":"2026-06-02 15:28","d":"SHORT","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":1.91,"pnl":9.06,"ex":"TIME_EXTENDED_CHANDELIER_RUNNER","ep":4533.5,"xp":4515.66,"sess":"NEW_YORK","oos":0,"eq":92.5},{"id":5,"t":"2026-06-02 20:42","d":"SHORT","pb":"LEO_SWEEP_TRAP","ini":"LEO","r":3.03,"pnl":14.33,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4519.3,"xp":4502.69,"sess":"ASIA","oos":0,"eq":106.83},{"id":6,"t":"2026-06-03 15:12","d":"SHORT","pb":"LEO_LIQUIDITY_TRAP","ini":"LEO","r":0.45,"pnl":1.79,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4474.6,"xp":4470.36,"sess":"NEW_YORK","oos":0,"eq":108.62},{"id":7,"t":"2026-06-03 17:13","d":"SHORT","pb":"LEO_LIQUIDITY_TRAP","ini":"LEO","r":0.21,"pnl":0.59,"ex":"CONTINUOUS_40R_SL_TRAIL","ep":4470,"xp":4468,"sess":"NEW_YORK","oos":0,"eq":109.21},{"id":8,"t":"2026-06-04 16:33","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.33,"pnl":1.17,"ex":"TIME_96M","ep":4507.8,"xp":4504.71,"sess":"NEW_YORK","oos":0,"eq":110.38},{"id":9,"t":"2026-06-05 01:05","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.53,"ex":"STOP_LOSS","ep":4495.2,"xp":4486.79,"sess":"ASIA","oos":0,"eq":104.85},{"id":10,"t":"2026-06-05 17:24","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":2.52,"pnl":12.12,"ex":"TIME_EXTENDED_CHANDELIER_RUNNER","ep":4363.8,"xp":4340.26,"sess":"NEW_YORK","oos":0,"eq":116.97},{"id":11,"t":"2026-06-08 01:06","d":"SHORT","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":2.41,"pnl":11.62,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4357.3,"xp":4334.72,"sess":"ASIA","oos":0,"eq":128.59},{"id":12,"t":"2026-06-08 02:30","d":"SHORT","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":0.98,"pnl":4.42,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4335.7,"xp":4326.58,"sess":"ASIA","oos":0,"eq":133.01},{"id":13,"t":"2026-06-08 07:35","d":"SHORT","pb":"LEO_SWEEP_TRAP","ini":"LEO","r":3.46,"pnl":16.79,"ex":"UNCAPPED_SUPER_RUNNER_TRAIL","ep":4332.5,"xp":4303.09,"sess":"LONDON","oos":0,"eq":149.8},{"id":14,"t":"2026-06-09 01:18","d":"SHORT","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":-1,"pnl":-5.56,"ex":"STOP_LOSS","ep":4347.8,"xp":4355.59,"sess":"ASIA","oos":0,"eq":144.24},{"id":15,"t":"2026-06-09 13:50","d":"LONG","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":-0.74,"pnl":-4.21,"ex":"INSTANT_PRE_SL_CUT","ep":4367.2,"xp":4360.91,"sess":"NEW_YORK","oos":0,"eq":140.03},{"id":16,"t":"2026-06-09 15:56","d":"SHORT","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":2.27,"pnl":10.92,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4302.2,"xp":4280.93,"sess":"NEW_YORK","oos":0,"eq":150.95},{"id":17,"t":"2026-06-09 17:29","d":"SHORT","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":0.47,"pnl":1.87,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4287.4,"xp":4283.04,"sess":"NEW_YORK","oos":0,"eq":152.82},{"id":18,"t":"2026-06-10 12:48","d":"SHORT","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":2.14,"pnl":10.26,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4181.4,"xp":4161.37,"sess":"LONDON","oos":0,"eq":163.08},{"id":19,"t":"2026-06-10 16:29","d":"SHORT","pb":"LEO_LIQUIDITY_TRAP","ini":"LEO","r":0.33,"pnl":1.21,"ex":"SMART_STALL_LOCK","ep":4150.6,"xp":4147.51,"sess":"NEW_YORK","oos":0,"eq":164.29},{"id":20,"t":"2026-06-11 02:30","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":1.89,"pnl":9.01,"ex":"UNCAPPED_RUNNER_TRAIL","ep":4102.3,"xp":4084.63,"sess":"ASIA","oos":0,"eq":173.3},{"id":21,"t":"2026-06-11 10:10","d":"SHORT","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":2.5,"pnl":12.06,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4110.8,"xp":4087.43,"sess":"LONDON","oos":0,"eq":185.36},{"id":22,"t":"2026-06-11 13:38","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.44,"ex":"STOP_LOSS","ep":4092.3,"xp":4101.65,"sess":"NEW_YORK","oos":0,"eq":179.92},{"id":23,"t":"2026-06-11 23:30","d":"LONG","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":-1,"pnl":-5.45,"ex":"STOP_LOSS","ep":4241.5,"xp":4232.15,"sess":"ASIA","oos":0,"eq":174.47},{"id":24,"t":"2026-06-12 16:51","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.55,"pnl":2.3,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4235.6,"xp":4240.74,"sess":"NEW_YORK","oos":0,"eq":176.77},{"id":25,"t":"2026-06-12 17:20","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.45,"ex":"STOP_LOSS","ep":4243.6,"xp":4234.25,"sess":"NEW_YORK","oos":0,"eq":171.32},{"id":26,"t":"2026-06-15 15:05","d":"LONG","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":-1,"pnl":-5.47,"ex":"STOP_LOSS","ep":4379.6,"xp":4370.25,"sess":"NEW_YORK","oos":0,"eq":165.85},{"id":27,"t":"2026-06-15 22:48","d":"LONG","pb":"LEO_SWEEP_TRAP","ini":"LEO","r":0.45,"pnl":1.52,"ex":"FEE_ADJUSTED_BE","ep":4333.3,"xp":4335.98,"sess":"ASIA","oos":0,"eq":167.37},{"id":28,"t":"2026-06-16 15:35","d":"LONG","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":0.61,"pnl":2.58,"ex":"TIME_270M","ep":4348.9,"xp":4354.6,"sess":"NEW_YORK","oos":0,"eq":169.95},{"id":29,"t":"2026-06-16 20:50","d":"LONG","pb":"LEO_SWEEP_TRAP","ini":"LEO","r":-0.87,"pnl":-5.16,"ex":"REVERSAL_SCRATCH","ep":4354.1,"xp":4349.4,"sess":"ASIA","oos":0,"eq":164.79},{"id":30,"t":"2026-06-16 23:12","d":"LONG","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":-0.53,"pnl":-3.53,"ex":"REVERSAL_EXIT (DEFENSIVE_CUT)","ep":4356.8,"xp":4354.17,"sess":"ASIA","oos":0,"eq":161.26},{"id":31,"t":"2026-06-18 13:20","d":"SHORT","pb":"LEO_LIQUIDITY_TRAP","ini":"LEO","r":-0.74,"pnl":-4.16,"ex":"INSTANT_PRE_SL_CUT","ep":4273.5,"xp":4280.42,"sess":"NEW_YORK","oos":0,"eq":157.1},{"id":32,"t":"2026-06-18 13:40","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.45,"pnl":1.79,"ex":"FEE_ADJUSTED_BE","ep":4286.5,"xp":4282.29,"sess":"NEW_YORK","oos":0,"eq":158.89},{"id":33,"t":"2026-06-18 17:29","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":2.2,"pnl":10.55,"ex":"TIME_96M","ep":4245.3,"xp":4224.73,"sess":"NEW_YORK","oos":0,"eq":169.44},{"id":34,"t":"2026-06-19 10:01","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.33,"pnl":1.2,"ex":"SMART_STALL_LOCK","ep":4178.3,"xp":4175.21,"sess":"LONDON","oos":0,"eq":170.64},{"id":35,"t":"2026-06-19 16:40","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.46,"ex":"STOP_LOSS","ep":4170.7,"xp":4161.6,"sess":"NEW_YORK","oos":0,"eq":165.18},{"id":36,"t":"2026-06-23 01:03","d":"SHORT","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":3.6,"pnl":17.31,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4209.4,"xp":4186.67,"sess":"ASIA","oos":0,"eq":182.49},{"id":37,"t":"2026-06-24 07:35","d":"SHORT","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":3.04,"pnl":14.76,"ex":"TP2_FULL_TARGET","ep":4095.5,"xp":4067.08,"sess":"LONDON","oos":0,"eq":197.25},{"id":38,"t":"2026-06-24 16:03","d":"SHORT","pb":"LEO_LIQUIDITY_TRAP","ini":"LEO","r":-1,"pnl":-5.43,"ex":"STOP_LOSS","ep":4020.6,"xp":4029.95,"sess":"NEW_YORK","oos":0,"eq":191.82},{"id":39,"t":"2026-06-24 16:41","d":"SHORT","pb":"LEO_LIQUIDITY_TRAP","ini":"LEO","r":3.64,"pnl":17.78,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4033,"xp":3998.95,"sess":"NEW_YORK","oos":0,"eq":209.6},{"id":40,"t":"2026-06-25 01:29","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.45,"pnl":1.82,"ex":"FEE_ADJUSTED_BE","ep":4006.5,"xp":4002.29,"sess":"ASIA","oos":0,"eq":211.42},{"id":41,"t":"2026-06-25 02:30","d":"SHORT","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":0.33,"pnl":1.22,"ex":"SMART_STALL_LOCK","ep":3996.2,"xp":3993.11,"sess":"ASIA","oos":0,"eq":212.64},{"id":42,"t":"2026-06-25 10:31","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.33,"pnl":1.22,"ex":"SMART_STALL_LOCK","ep":4000.9,"xp":3997.81,"sess":"LONDON","oos":0,"eq":213.86},{"id":43,"t":"2026-06-25 15:07","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.43,"ex":"STOP_LOSS","ep":4034.2,"xp":4024.85,"sess":"NEW_YORK","oos":0,"eq":208.43},{"id":44,"t":"2026-06-26 15:21","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.57,"pnl":2.39,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4096.8,"xp":4102.1,"sess":"NEW_YORK","oos":0,"eq":210.82},{"id":45,"t":"2026-06-29 01:00","d":"SHORT","pb":"LEO_LIQUIDITY_TRAP","ini":"LEO","r":-1,"pnl":-5.44,"ex":"STOP_LOSS","ep":4078.8,"xp":4088.15,"sess":"ASIA","oos":0,"eq":205.38},{"id":46,"t":"2026-06-29 02:14","d":"SHORT","pb":"LEO_LIQUIDITY_TRAP","ini":"LEO","r":-0.74,"pnl":-4.14,"ex":"INSTANT_PRE_SL_CUT","ep":4076,"xp":4082.92,"sess":"ASIA","oos":0,"eq":201.24},{"id":47,"t":"2026-06-29 13:40","d":"SHORT","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":3.24,"pnl":15.77,"ex":"UNCAPPED_SUPER_RUNNER_TRAIL","ep":4052.8,"xp":4022.51,"sess":"NEW_YORK","oos":0,"eq":217.01},{"id":48,"t":"2026-06-29 15:19","d":"SHORT","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":-1,"pnl":-5.43,"ex":"STOP_LOSS","ep":4036.1,"xp":4045.45,"sess":"NEW_YORK","oos":0,"eq":211.58},{"id":49,"t":"2026-06-29 17:25","d":"SHORT","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":1.81,"pnl":8.62,"ex":"TIME_EXIT_110M","ep":4039.2,"xp":4022.28,"sess":"NEW_YORK","oos":0,"eq":220.2},{"id":50,"t":"2026-06-29 23:32","d":"SHORT","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":2.37,"pnl":11.24,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4032.6,"xp":4016.89,"sess":"ASIA","oos":0,"eq":231.44},{"id":51,"t":"2026-06-30 13:23","d":"SHORT","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":0.33,"pnl":1.2,"ex":"SMART_STALL_LOCK","ep":4037.6,"xp":4034.66,"sess":"NEW_YORK","oos":0,"eq":232.64},{"id":52,"t":"2026-06-30 16:45","d":"LONG","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":-0.74,"pnl":-4.13,"ex":"INSTANT_PRE_SL_CUT","ep":4047.6,"xp":4040.68,"sess":"NEW_YORK","oos":0,"eq":228.51},{"id":53,"t":"2026-07-02 17:15","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-0.74,"pnl":-4.14,"ex":"INSTANT_PRE_SL_CUT","ep":4132,"xp":4125.08,"sess":"NEW_YORK","oos":0,"eq":224.37},{"id":54,"t":"2026-07-02 23:43","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":2.19,"pnl":10.32,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4138.4,"xp":4153.38,"sess":"ASIA","oos":0,"eq":234.69},{"id":55,"t":"2026-07-03 02:31","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.18,"pnl":0.44,"ex":"CONTINUOUS_40R_SL_TRAIL","ep":4193.9,"xp":4195.56,"sess":"ASIA","oos":0,"eq":235.13},{"id":56,"t":"2026-07-03 09:16","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.06,"pnl":-0.2,"ex":"CONTINUOUS_40R_SL_TRAIL","ep":4188.3,"xp":4187.81,"sess":"LONDON","oos":0,"eq":234.93},{"id":57,"t":"2026-07-03 15:10","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.55,"ex":"STOP_LOSS","ep":4186.3,"xp":4178.64,"sess":"NEW_YORK","oos":0,"eq":229.38},{"id":58,"t":"2026-07-03 16:09","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":3.2,"pnl":15.41,"ex":"TIME_EXTENDED_CHANDELIER_RUNNER","ep":4177.6,"xp":4200.51,"sess":"NEW_YORK","oos":0,"eq":244.79},{"id":59,"t":"2026-07-06 04:17","d":"LONG","pb":"LEO_SWEEP_TRAP","ini":"LEO","r":-1,"pnl":-5.45,"ex":"STOP_LOSS","ep":4175.3,"xp":4165.95,"sess":"ASIA","oos":0,"eq":239.34},{"id":60,"t":"2026-07-06 13:45","d":"SHORT","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":0.7,"pnl":3.05,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4157.9,"xp":4151.7,"sess":"NEW_YORK","oos":0,"eq":242.39},{"id":61,"t":"2026-07-07 02:09","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.6,"pnl":2.52,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4149.9,"xp":4144.83,"sess":"ASIA","oos":0,"eq":244.91},{"id":62,"t":"2026-07-07 15:45","d":"LONG","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":-1,"pnl":-5.44,"ex":"STOP_LOSS","ep":4157.1,"xp":4147.75,"sess":"NEW_YORK","oos":0,"eq":239.47},{"id":63,"t":"2026-07-09 13:00","d":"LONG","pb":"MAX_TREND_PULLBACK","ini":"MAX","r":2.33,"pnl":11.14,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4121.5,"xp":4140.95,"sess":"NEW_YORK","oos":0,"eq":250.61},{"id":64,"t":"2026-07-09 20:34","d":"LONG","pb":"LEO_SWEEP_TRAP","ini":"LEO","r":-1,"pnl":-5.82,"ex":"STOP_LOSS","ep":4133.3,"xp":4128.26,"sess":"ASIA","oos":0,"eq":244.79},{"id":65,"t":"2026-07-10 01:47","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":2.15,"pnl":10.15,"ex":"REVERSAL_PROFIT_LOCK","ep":4124,"xp":4138.71,"sess":"ASIA","oos":0,"eq":254.94},{"id":66,"t":"2026-07-10 16:59","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.64,"pnl":2.76,"ex":"TIME_96M","ep":4113.6,"xp":4107.62,"sess":"NEW_YORK","oos":0,"eq":257.7},{"id":67,"t":"2026-07-13 01:53","d":"SHORT","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":0.45,"pnl":1.81,"ex":"BREAKEVEN","ep":4088,"xp":4083.79,"sess":"ASIA","oos":0,"eq":259.51},{"id":68,"t":"2026-07-13 07:50","d":"SHORT","pb":"LEO_SWEEP_TRAP","ini":"LEO","r":-0.74,"pnl":-4.18,"ex":"INSTANT_PRE_SL_CUT","ep":4064.4,"xp":4070.69,"sess":"LONDON","oos":0,"eq":255.33},{"id":69,"t":"2026-07-13 13:03","d":"SHORT","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":3.96,"pnl":19.37,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4069.6,"xp":4033.13,"sess":"NEW_YORK","oos":0,"eq":274.7},{"id":70,"t":"2026-07-13 17:25","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.4,"pnl":1.56,"ex":"CONTINUOUS_40R_SL_TRAIL","ep":4004.1,"xp":4000.38,"sess":"NEW_YORK","oos":0,"eq":276.26},{"id":71,"t":"2026-07-13 23:05","d":"SHORT","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":0.56,"pnl":2.21,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4008,"xp":4004.25,"sess":"ASIA","oos":0,"eq":278.47},{"id":72,"t":"2026-07-14 01:03","d":"SHORT","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":-1,"pnl":-5.45,"ex":"STOP_LOSS","ep":4003.9,"xp":4012.84,"sess":"ASIA","oos":0,"eq":273.02},{"id":73,"t":"2026-07-14 15:04","d":"LONG","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":0.45,"pnl":1.81,"ex":"BREAKEVEN","ep":4096,"xp":4100.21,"sess":"NEW_YORK","oos":0,"eq":274.83},{"id":74,"t":"2026-07-14 15:42","d":"SHORT","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":0.79,"pnl":3.51,"ex":"TIME_EXIT_110M","ep":4076.6,"xp":4069.21,"sess":"NEW_YORK","oos":0,"eq":278.34},{"id":75,"t":"2026-07-15 15:03","d":"LONG","pb":"LEO_LIQUIDITY_TRAP","ini":"LEO","r":-1,"pnl":-5.43,"ex":"STOP_LOSS","ep":4066.3,"xp":4056.95,"sess":"NEW_YORK","oos":0,"eq":272.91},{"id":76,"t":"2026-07-15 17:29","d":"LONG","pb":"LEO_LIQUIDITY_TRAP","ini":"LEO","r":2.21,"pnl":10.62,"ex":"TRAIL_STOP (PHASE_4)","ep":4054.2,"xp":4074.86,"sess":"NEW_YORK","oos":0,"eq":283.53},{"id":77,"t":"2026-07-16 15:23","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.33,"pnl":1.22,"ex":"SMART_STALL_LOCK","ep":4010.8,"xp":4013.89,"sess":"NEW_YORK","oos":0,"eq":284.75},{"id":78,"t":"2026-07-16 15:45","d":"SHORT","pb":"MAX_TREND_PULLBACK","ini":"MAX","r":2.36,"pnl":11.37,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4014.6,"xp":3992.54,"sess":"NEW_YORK","oos":0,"eq":296.12},{"id":79,"t":"2026-07-16 23:22","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.63,"ex":"STOP_LOSS","ep":3981.6,"xp":3987.88,"sess":"ASIA","oos":0,"eq":290.49},{"id":80,"t":"2026-07-17 08:11","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.45,"ex":"STOP_LOSS","ep":3996.3,"xp":4005.16,"sess":"LONDON","oos":0,"eq":285.04},{"id":81,"t":"2026-07-20 02:03","d":"LONG","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":1.99,"pnl":9.52,"ex":"TIME_EXIT_110M","ep":4013,"xp":4031.61,"sess":"ASIA","oos":0,"eq":294.56},{"id":82,"t":"2026-07-20 15:08","d":"LONG","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":0.33,"pnl":1.22,"ex":"SMART_STALL_LOCK","ep":4017.5,"xp":4020.59,"sess":"NEW_YORK","oos":0,"eq":295.78},{"id":83,"t":"2026-07-20 16:42","d":"SHORT","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":0.28,"pnl":0.96,"ex":"TIME_EXIT_110M","ep":4013,"xp":4010.46,"sess":"NEW_YORK","oos":0,"eq":296.74},{"id":84,"t":"2026-07-21 02:21","d":"LONG","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":2.91,"pnl":14.09,"ex":"TIME_EXTENDED_CHANDELIER_RUNNER","ep":4029.5,"xp":4055.83,"sess":"ASIA","oos":0,"eq":310.83},{"id":85,"t":"2026-07-21 13:49","d":"LONG","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":3.02,"pnl":14.65,"ex":"TIME_EXTENDED_CHANDELIER_RUNNER","ep":4054.1,"xp":4080.19,"sess":"NEW_YORK","oos":0,"eq":325.48},{"id":86,"t":"2026-07-21 17:08","d":"LONG","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":1.14,"pnl":5.26,"ex":"TIME_EXIT_110M","ep":4076.1,"xp":4086.76,"sess":"NEW_YORK","oos":0,"eq":330.74},{"id":87,"t":"2026-07-22 13:00","d":"LONG","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":3.91,"pnl":18.98,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4122.8,"xp":4150.53,"sess":"NEW_YORK","oos":0,"eq":349.72},{"id":88,"t":"2026-07-22 15:00","d":"LONG","pb":"LEO_SWEEP_TRAP","ini":"LEO","r":0.45,"pnl":1.76,"ex":"BE_LOCK","ep":4156.8,"xp":4160.62,"sess":"NEW_YORK","oos":0,"eq":351.48},{"id":89,"t":"2026-07-22 23:00","d":"SHORT","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":-1,"pnl":-5.44,"ex":"STOP_LOSS","ep":4122.1,"xp":4131.45,"sess":"ASIA","oos":0,"eq":346.04},{"id":90,"t":"2026-07-23 15:09","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.3,"pnl":1.07,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4054.7,"xp":4051.89,"sess":"NEW_YORK","oos":0,"eq":347.11},{"id":91,"t":"2026-07-24 01:00","d":"SHORT","pb":"LEO_SWEEP_TRAP","ini":"LEO","r":0.45,"pnl":1.13,"ex":"BE_LOCK","ep":4050,"xp":4048.38,"sess":"ASIA","oos":0,"eq":348.24},{"id":92,"t":"2026-07-24 16:57","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.43,"ex":"STOP_LOSS","ep":4069.7,"xp":4060.35,"sess":"NEW_YORK","oos":0,"eq":342.81},{"id":93,"t":"2026-07-27 13:15","d":"LONG","pb":"LEO_SWEEP_TRAP","ini":"LEO","r":-1,"pnl":-5.57,"ex":"STOP_LOSS","ep":4087.8,"xp":4080.6,"sess":"NEW_YORK","oos":0,"eq":337.24},{"id":94,"t":"2026-07-27 13:36","d":"LONG","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":0.33,"pnl":1.15,"ex":"SMART_STALL_LOCK","ep":4084.5,"xp":4087.22,"sess":"NEW_YORK","oos":0,"eq":338.39},{"id":95,"t":"2026-07-28 08:30","d":"SHORT","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":2.85,"pnl":13.6,"ex":"TP2_FULL_TARGET","ep":4047.1,"xp":4029.77,"sess":"LONDON","oos":0,"eq":351.99},{"id":96,"t":"2026-07-28 13:05","d":"SHORT","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":1.32,"pnl":6.12,"ex":"TRAIL_STOP","ep":4031.1,"xp":4020.01,"sess":"NEW_YORK","oos":0,"eq":358.11},{"id":97,"t":"2026-07-31 02:03","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.44,"ex":"STOP_LOSS","ep":4143.1,"xp":4133.75,"sess":"ASIA","oos":0,"eq":352.67},{"id":98,"t":"2026-07-31 04:15","d":"LONG","pb":"LEO_SWEEP_TRAP","ini":"LEO","r":0.72,"pnl":2.98,"ex":"TIME_120M","ep":4135,"xp":4139.84,"sess":"ASIA","oos":0,"eq":355.65},{"id":99,"t":"2026-07-31 17:11","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.44,"ex":"STOP_LOSS","ep":4098.4,"xp":4107.75,"sess":"NEW_YORK","oos":0,"eq":350.21},{"id":100,"t":"2026-08-03 01:48","d":"LONG","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":0.33,"pnl":1.2,"ex":"SMART_STALL_LOCK","ep":4109.9,"xp":4112.92,"sess":"ASIA","oos":0,"eq":351.41},{"id":101,"t":"2026-08-03 02:18","d":"LONG","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":0.33,"pnl":1.21,"ex":"SMART_STALL_LOCK","ep":4113.1,"xp":4116.16,"sess":"ASIA","oos":0,"eq":352.62},{"id":102,"t":"2026-08-03 15:25","d":"SHORT","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":-0.06,"pnl":-0.74,"ex":"TIME_EXIT_110M","ep":4089.5,"xp":4090.06,"sess":"NEW_YORK","oos":0,"eq":351.88},{"id":103,"t":"2026-08-03 23:00","d":"LONG","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":1.94,"pnl":8.92,"ex":"TRAIL_STOP (PHASE_4)","ep":4108.3,"xp":4118.49,"sess":"ASIA","oos":0,"eq":360.8},{"id":104,"t":"2026-08-04 01:12","d":"LONG","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":0.33,"pnl":1.02,"ex":"SMART_STALL_LOCK","ep":4103.7,"xp":4105.85,"sess":"ASIA","oos":0,"eq":361.82},{"id":105,"t":"2026-08-04 01:42","d":"LONG","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":0.32,"pnl":1.01,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4112.1,"xp":4114.32,"sess":"ASIA","oos":0,"eq":362.83},{"id":106,"t":"2026-08-04 13:20","d":"LONG","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":1.65,"pnl":7.82,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4129.5,"xp":4144.95,"sess":"NEW_YORK","oos":0,"eq":370.65},{"id":107,"t":"2026-08-04 22:25","d":"LONG","pb":"LEO_SWEEP_TRAP","ini":"LEO","r":0.45,"pnl":1.39,"ex":"FEE_ADJUSTED_BE","ep":4134.1,"xp":4136.27,"sess":"ASIA","oos":0,"eq":372.04},{"id":108,"t":"2026-08-05 13:07","d":"LONG","pb":"LEO_LIQUIDITY_TRAP","ini":"LEO","r":4.37,"pnl":21.38,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4253.8,"xp":4294.64,"sess":"NEW_YORK","oos":0,"eq":393.42},{"id":109,"t":"2026-08-05 17:24","d":"LONG","pb":"LEO_LIQUIDITY_TRAP","ini":"LEO","r":1.84,"pnl":8.74,"ex":"TRAIL_STOP (PHASE_4)","ep":4300.5,"xp":4317.7,"sess":"NEW_YORK","oos":0,"eq":402.16},{"id":110,"t":"2026-08-06 01:24","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.86,"pnl":3.83,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4342.5,"xp":4350.53,"sess":"ASIA","oos":0,"eq":405.99},{"id":111,"t":"2026-08-06 10:10","d":"SHORT","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":3.04,"pnl":14.69,"ex":"TP2_FULL_TARGET","ep":4328.8,"xp":4303.14,"sess":"LONDON","oos":0,"eq":420.68},{"id":112,"t":"2026-08-06 13:20","d":"LONG","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":2.15,"pnl":10.31,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4305.2,"xp":4325.33,"sess":"NEW_YORK","oos":0,"eq":430.99},{"id":113,"t":"2026-08-06 16:55","d":"LONG","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":0.33,"pnl":1.19,"ex":"SMART_STALL_LOCK","ep":4298.9,"xp":4301.99,"sess":"NEW_YORK","oos":0,"eq":432.18},{"id":114,"t":"2026-08-07 15:52","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.33,"pnl":1.18,"ex":"SMART_STALL_LOCK","ep":4401.4,"xp":4398.31,"sess":"NEW_YORK","oos":0,"eq":433.36},{"id":115,"t":"2026-08-10 02:29","d":"LONG","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":-1,"pnl":-5.47,"ex":"STOP_LOSS","ep":4390.9,"xp":4381.55,"sess":"ASIA","oos":0,"eq":427.89},{"id":116,"t":"2026-08-10 13:10","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.62,"ex":"STOP_LOSS","ep":4393.9,"xp":4386.8,"sess":"NEW_YORK","oos":0,"eq":422.27},{"id":117,"t":"2026-08-11 01:08","d":"LONG","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":2.51,"pnl":11.95,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4465.6,"xp":4484.95,"sess":"ASIA","oos":0,"eq":434.22},{"id":118,"t":"2026-08-11 17:08","d":"LONG","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":-1,"pnl":-5.47,"ex":"STOP_LOSS","ep":4444.4,"xp":4435.05,"sess":"NEW_YORK","oos":0,"eq":428.75},{"id":119,"t":"2026-08-12 10:48","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-0.56,"pnl":-3.39,"ex":"REVERSAL_SCRATCH","ep":4468.5,"xp":4472.74,"sess":"LONDON","oos":0,"eq":425.36},{"id":120,"t":"2026-08-12 13:40","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.48,"ex":"STOP_LOSS","ep":4469.9,"xp":4479.25,"sess":"NEW_YORK","oos":0,"eq":419.88},{"id":121,"t":"2026-08-12 15:04","d":"SHORT","pb":"LEO_LIQUIDITY_TRAP","ini":"LEO","r":-1,"pnl":-5.48,"ex":"STOP_LOSS","ep":4475.3,"xp":4484.65,"sess":"NEW_YORK","oos":0,"eq":414.4},{"id":122,"t":"2026-08-12 15:55","d":"LONG","pb":"LEO_SWEEP_TRAP","ini":"LEO","r":-1,"pnl":-5.53,"ex":"STOP_LOSS","ep":4478.2,"xp":4469.7,"sess":"NEW_YORK","oos":0,"eq":408.87},{"id":123,"t":"2026-08-12 17:01","d":"LONG","pb":"LEO_LIQUIDITY_TRAP","ini":"LEO","r":-1,"pnl":-5.48,"ex":"STOP_LOSS","ep":4465.7,"xp":4456.35,"sess":"NEW_YORK","oos":0,"eq":403.39},{"id":124,"t":"2026-08-13 15:27","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.58,"pnl":2.42,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4426.6,"xp":4421.19,"sess":"NEW_YORK","oos":0,"eq":405.81},{"id":125,"t":"2026-08-17 01:44","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.48,"ex":"STOP_LOSS","ep":4459.9,"xp":4450.55,"sess":"ASIA","oos":0,"eq":400.33},{"id":126,"t":"2026-08-17 13:12","d":"LONG","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":3.37,"pnl":16.35,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4445,"xp":4474.53,"sess":"NEW_YORK","oos":0,"eq":416.68},{"id":127,"t":"2026-08-17 23:00","d":"SHORT","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":-1,"pnl":-5.69,"ex":"STOP_LOSS","ep":4468.7,"xp":4475.2,"sess":"ASIA","oos":0,"eq":410.99},{"id":128,"t":"2026-08-18 01:25","d":"SHORT","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":2.62,"pnl":12.48,"ex":"REVERSAL_EXIT (70%_AGENTS_FLIP)","ep":4478.1,"xp":4459.11,"sess":"ASIA","oos":0,"eq":423.47},{"id":129,"t":"2026-08-18 16:33","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.6,"pnl":2.53,"ex":"TIME_96M","ep":4419.2,"xp":4413.59,"sess":"NEW_YORK","oos":0,"eq":426},{"id":130,"t":"2026-08-19 01:18","d":"SHORT","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":-1,"pnl":-5.47,"ex":"STOP_LOSS","ep":4389.5,"xp":4398.78,"sess":"ASIA","oos":0,"eq":420.53},{"id":131,"t":"2026-08-19 23:45","d":"LONG","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":-0.74,"pnl":-4.36,"ex":"INSTANT_PRE_SL_CUT","ep":4574.3,"xp":4569.13,"sess":"ASIA","oos":0,"eq":416.17},{"id":132,"t":"2026-08-20 02:03","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.26,"pnl":0.81,"ex":"TIME_96M","ep":4554.8,"xp":4557.23,"sess":"ASIA","oos":0,"eq":416.98},{"id":133,"t":"2026-08-20 07:15","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.4,"pnl":1.37,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4545.6,"xp":4542.74,"sess":"LONDON","oos":0,"eq":418.35},{"id":134,"t":"2026-08-20 13:00","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.48,"ex":"STOP_LOSS","ep":4536.5,"xp":4527.15,"sess":"NEW_YORK","oos":0,"eq":412.87},{"id":135,"t":"2026-08-20 16:50","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.33,"pnl":1.16,"ex":"SMART_STALL_LOCK","ep":4568.3,"xp":4571.39,"sess":"NEW_YORK","oos":0,"eq":414.03},{"id":136,"t":"2026-08-21 01:14","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":1.85,"pnl":8.62,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4577.4,"xp":4590.97,"sess":"ASIA","oos":0,"eq":422.65},{"id":137,"t":"2026-08-21 02:30","d":"LONG","pb":"LEO_SWEEP_TRAP","ini":"LEO","r":0.45,"pnl":1.71,"ex":"BE_LOCK","ep":4583.8,"xp":4587.62,"sess":"ASIA","oos":0,"eq":424.36},{"id":138,"t":"2026-08-21 13:37","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.5,"ex":"STOP_LOSS","ep":4644.3,"xp":4634.95,"sess":"NEW_YORK","oos":0,"eq":418.86},{"id":139,"t":"2026-08-24 01:36","d":"LONG","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":-1,"pnl":-5.5,"ex":"STOP_LOSS","ep":4674.9,"xp":4665.55,"sess":"ASIA","oos":0,"eq":413.36},{"id":140,"t":"2026-08-24 02:55","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.33,"pnl":1.15,"ex":"SMART_STALL_LOCK","ep":4699,"xp":4702.09,"sess":"ASIA","oos":0,"eq":414.51},{"id":141,"t":"2026-08-25 01:23","d":"SHORT","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":2.77,"pnl":13.36,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4724.3,"xp":4698.38,"sess":"ASIA","oos":0,"eq":427.87},{"id":142,"t":"2026-08-25 16:40","d":"LONG","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":2.41,"pnl":11.55,"ex":"UNCAPPED_SUPER_RUNNER_TRAIL","ep":4700.5,"xp":4723.03,"sess":"NEW_YORK","oos":0,"eq":439.42},{"id":143,"t":"2026-08-26 01:13","d":"LONG","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":2.22,"pnl":10.53,"ex":"STRUCTURE_RUNNER_TRAIL","ep":4699.9,"xp":4718.35,"sess":"ASIA","oos":0,"eq":449.95},{"id":144,"t":"2026-08-26 07:08","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.33,"pnl":1,"ex":"SMART_STALL_LOCK","ep":4689.8,"xp":4687.42,"sess":"LONDON","oos":0,"eq":450.95},{"id":145,"t":"2026-08-26 15:51","d":"SHORT","pb":"LEO_LIQUIDITY_TRAP","ini":"LEO","r":0.33,"pnl":1.15,"ex":"SMART_STALL_LOCK","ep":4657.4,"xp":4654.31,"sess":"NEW_YORK","oos":0,"eq":452.1},{"id":146,"t":"2026-08-26 17:43","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.42,"pnl":1.61,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4652.4,"xp":4648.45,"sess":"NEW_YORK","oos":0,"eq":453.71},{"id":147,"t":"2026-08-27 13:00","d":"SHORT","pb":"MAX_TREND_PULLBACK","ini":"MAX","r":1.33,"pnl":6.15,"ex":"TRAIL_STOP","ep":4638.1,"xp":4625.66,"sess":"NEW_YORK","oos":0,"eq":459.86},{"id":148,"t":"2026-08-28 01:09","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.68,"ex":"STOP_LOSS","ep":4653.2,"xp":4646.39,"sess":"ASIA","oos":0,"eq":454.18},{"id":149,"t":"2026-08-28 15:21","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.49,"ex":"STOP_LOSS","ep":4608.9,"xp":4618.25,"sess":"NEW_YORK","oos":0,"eq":448.69},{"id":150,"t":"2026-08-28 17:25","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":2.16,"pnl":10.31,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4529,"xp":4508.83,"sess":"NEW_YORK","oos":0,"eq":459},{"id":151,"t":"2026-08-31 01:00","d":"SHORT","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":-1,"pnl":-5.48,"ex":"STOP_LOSS","ep":4494.7,"xp":4504.05,"sess":"ASIA","oos":0,"eq":453.52},{"id":152,"t":"2026-08-31 01:07","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":1.2,"pnl":5.5,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4496.1,"xp":4484.92,"sess":"ASIA","oos":0,"eq":459.02},{"id":153,"t":"2026-08-31 15:20","d":"SHORT","pb":"LEO_SWEEP_TRAP","ini":"LEO","r":-0.05,"pnl":-0.73,"ex":"TIME_96M","ep":4481.4,"xp":4481.87,"sess":"NEW_YORK","oos":0,"eq":458.29},{"id":154,"t":"2026-08-31 17:25","d":"SHORT","pb":"LEO_LIQUIDITY_TRAP","ini":"LEO","r":-0.28,"pnl":-1.88,"ex":"TIME_EXIT_110M","ep":4480.4,"xp":4483.02,"sess":"NEW_YORK","oos":0,"eq":456.41},{"id":155,"t":"2026-08-31 23:12","d":"SHORT","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":-1,"pnl":-5.67,"ex":"STOP_LOSS","ep":4493.3,"xp":4499.99,"sess":"ASIA","oos":0,"eq":450.74},{"id":156,"t":"2026-09-01 10:47","d":"SHORT","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":2.77,"pnl":13.39,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4427.9,"xp":4401.98,"sess":"LONDON","oos":0,"eq":464.13},{"id":157,"t":"2026-09-01 15:15","d":"SHORT","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":-0.74,"pnl":-4.17,"ex":"INSTANT_PRE_SL_CUT","ep":4405.6,"xp":4412.52,"sess":"NEW_YORK","oos":0,"eq":459.96},{"id":158,"t":"2026-09-01 16:22","d":"SHORT","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":0.72,"pnl":3.15,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4404.8,"xp":4398.04,"sess":"NEW_YORK","oos":0,"eq":463.11},{"id":159,"t":"2026-09-01 16:53","d":"SHORT","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":2.95,"pnl":14.28,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4402.2,"xp":4374.62,"sess":"NEW_YORK","oos":0,"eq":477.39},{"id":160,"t":"2026-09-01 23:45","d":"SHORT","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":2.41,"pnl":11.39,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4378.8,"xp":4362.86,"sess":"ASIA","oos":0,"eq":488.78},{"id":161,"t":"2026-09-02 02:55","d":"SHORT","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":1.48,"pnl":6.94,"ex":"STRUCTURE_RUNNER_TRAIL","ep":4352.4,"xp":4338.56,"sess":"ASIA","oos":0,"eq":495.72},{"id":162,"t":"2026-09-02 16:00","d":"LONG","pb":"LEO_LIQUIDITY_TRAP","ini":"LEO","r":-1,"pnl":-5.47,"ex":"STOP_LOSS","ep":4420.9,"xp":4411.55,"sess":"NEW_YORK","oos":0,"eq":490.25},{"id":163,"t":"2026-09-03 17:04","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.33,"pnl":1.16,"ex":"SMART_STALL_LOCK","ep":4534.5,"xp":4537.59,"sess":"NEW_YORK","oos":0,"eq":491.41},{"id":164,"t":"2026-09-04 09:06","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.59,"pnl":2.41,"ex":"REVERSAL_PROFIT_LOCK","ep":4521.1,"xp":4516.14,"sess":"LONDON","oos":0,"eq":493.82},{"id":165,"t":"2026-09-04 13:58","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.48,"ex":"STOP_LOSS","ep":4461.2,"xp":4470.55,"sess":"NEW_YORK","oos":0,"eq":488.34},{"id":166,"t":"2026-09-04 15:23","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.33,"pnl":1.17,"ex":"SMART_STALL_LOCK","ep":4488.3,"xp":4485.21,"sess":"NEW_YORK","oos":0,"eq":489.51},{"id":167,"t":"2026-09-04 16:26","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":1.99,"pnl":9.47,"ex":"TIME_96M","ep":4481.6,"xp":4462.99,"sess":"NEW_YORK","oos":0,"eq":498.98},{"id":168,"t":"2026-09-07 02:56","d":"SHORT","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":0.33,"pnl":1.17,"ex":"SMART_STALL_LOCK","ep":4457,"xp":4453.91,"sess":"ASIA","oos":0,"eq":500.15},{"id":169,"t":"2026-09-07 13:00","d":"LONG","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":0.33,"pnl":1.07,"ex":"SMART_STALL_LOCK","ep":4443.9,"xp":4446.45,"sess":"NEW_YORK","oos":0,"eq":501.22},{"id":170,"t":"2026-09-07 17:33","d":"SHORT","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":0.33,"pnl":0.86,"ex":"SMART_STALL_LOCK","ep":4455.7,"xp":4453.84,"sess":"NEW_YORK","oos":0,"eq":502.08},{"id":171,"t":"2026-09-08 13:52","d":"SHORT","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":-1,"pnl":-5.48,"ex":"STOP_LOSS","ep":4442.8,"xp":4452.15,"sess":"NEW_YORK","oos":0,"eq":496.6},{"id":172,"t":"2026-09-08 16:56","d":"SHORT","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":-0.74,"pnl":-4.17,"ex":"INSTANT_PRE_SL_CUT","ep":4437.4,"xp":4444.32,"sess":"NEW_YORK","oos":0,"eq":492.43},{"id":173,"t":"2026-09-08 17:29","d":"SHORT","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":3.03,"pnl":14.7,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4438.9,"xp":4410.53,"sess":"NEW_YORK","oos":0,"eq":507.13},{"id":174,"t":"2026-09-08 23:18","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.43,"pnl":1.66,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4396,"xp":4392.01,"sess":"ASIA","oos":0,"eq":508.79},{"id":175,"t":"2026-09-09 13:00","d":"LONG","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":3.02,"pnl":14.48,"ex":"CONTINUOUS_40R_SL_TRAIL","ep":4449,"xp":4471.48,"sess":"NEW_YORK","oos":0,"eq":523.27},{"id":176,"t":"2026-09-09 16:08","d":"SHORT","pb":"LEO_LIQUIDITY_TRAP","ini":"LEO","r":-1,"pnl":-5.48,"ex":"STOP_LOSS","ep":4441.2,"xp":4450.55,"sess":"NEW_YORK","oos":0,"eq":517.79},{"id":177,"t":"2026-09-10 15:47","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.83,"pnl":3.69,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4404.7,"xp":4396.92,"sess":"NEW_YORK","oos":0,"eq":521.48},{"id":178,"t":"2026-09-10 16:34","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.47,"ex":"STOP_LOSS","ep":4399.6,"xp":4408.95,"sess":"NEW_YORK","oos":0,"eq":516.01},{"id":179,"t":"2026-09-11 15:27","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.2,"pnl":0.55,"ex":"CONTINUOUS_40R_SL_TRAIL","ep":4412,"xp":4413.91,"sess":"NEW_YORK","oos":0,"eq":516.56},{"id":180,"t":"2026-09-11 16:22","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.33,"pnl":1.18,"ex":"SMART_STALL_LOCK","ep":4399.6,"xp":4396.51,"sess":"NEW_YORK","oos":0,"eq":517.74},{"id":181,"t":"2026-09-14 01:03","d":"SHORT","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":0.3,"pnl":1.01,"ex":"CONTINUOUS_40R_SL_TRAIL","ep":4376.1,"xp":4373.34,"sess":"ASIA","oos":0,"eq":518.75},{"id":182,"t":"2026-09-14 10:55","d":"SHORT","pb":"LEO_SWEEP_TRAP","ini":"LEO","r":3.04,"pnl":14.68,"ex":"TIME_EXTENDED_CHANDELIER_RUNNER","ep":4331.4,"xp":4305.57,"sess":"LONDON","oos":0,"eq":533.43},{"id":183,"t":"2026-09-14 23:01","d":"SHORT","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":0.33,"pnl":1.06,"ex":"SMART_STALL_LOCK","ep":4335.7,"xp":4333.26,"sess":"ASIA","oos":0,"eq":534.49},{"id":184,"t":"2026-09-15 01:00","d":"SHORT","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":-1,"pnl":-5.66,"ex":"STOP_LOSS","ep":4332.5,"xp":4339.1,"sess":"ASIA","oos":0,"eq":528.83},{"id":185,"t":"2026-09-16 16:28","d":"SHORT","pb":"LEO_LIQUIDITY_TRAP","ini":"LEO","r":-1,"pnl":-5.47,"ex":"STOP_LOSS","ep":4386.7,"xp":4396.05,"sess":"NEW_YORK","oos":1,"eq":523.36},{"id":186,"t":"2026-09-17 02:06","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.33,"pnl":1.19,"ex":"SMART_STALL_LOCK","ep":4327.3,"xp":4324.21,"sess":"ASIA","oos":1,"eq":524.55},{"id":187,"t":"2026-09-17 13:46","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.52,"pnl":2.15,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4404.8,"xp":4409.69,"sess":"NEW_YORK","oos":1,"eq":526.7},{"id":188,"t":"2026-09-17 15:00","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.47,"ex":"STOP_LOSS","ep":4394.3,"xp":4403.65,"sess":"NEW_YORK","oos":1,"eq":521.23},{"id":189,"t":"2026-09-17 20:22","d":"LONG","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":0.33,"pnl":0.98,"ex":"SMART_STALL_LOCK","ep":4383.3,"xp":4385.47,"sess":"ASIA","oos":1,"eq":522.21},{"id":190,"t":"2026-09-18 02:30","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-0.73,"pnl":-4.13,"ex":"REVERSAL_SCRATCH","ep":4393.7,"xp":4387.06,"sess":"ASIA","oos":1,"eq":518.08},{"id":191,"t":"2026-09-18 13:00","d":"LONG","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":-1,"pnl":-5.47,"ex":"STOP_LOSS","ep":4411.1,"xp":4401.75,"sess":"NEW_YORK","oos":1,"eq":512.61},{"id":192,"t":"2026-09-18 15:22","d":"LONG","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":2.85,"pnl":13.78,"ex":"TP2_FULL_TARGET","ep":4391.4,"xp":4418.05,"sess":"NEW_YORK","oos":1,"eq":526.39},{"id":193,"t":"2026-09-21 15:45","d":"SHORT","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":0.4,"pnl":1.52,"ex":"CONTINUOUS_40R_SL_TRAIL","ep":4387.9,"xp":4384.18,"sess":"NEW_YORK","oos":1,"eq":527.91},{"id":194,"t":"2026-09-22 01:00","d":"LONG","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":-1,"pnl":-5.5,"ex":"STOP_LOSS","ep":4398.1,"xp":4389.24,"sess":"ASIA","oos":1,"eq":522.41},{"id":195,"t":"2026-09-22 09:02","d":"SHORT","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":-1,"pnl":-5.47,"ex":"STOP_LOSS","ep":4360.1,"xp":4369.45,"sess":"LONDON","oos":1,"eq":516.94},{"id":196,"t":"2026-09-22 23:17","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.33,"pnl":0.9,"ex":"SMART_STALL_LOCK","ep":4401.3,"xp":4403.24,"sess":"ASIA","oos":1,"eq":517.84},{"id":197,"t":"2026-09-23 12:23","d":"SHORT","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":3.04,"pnl":14.57,"ex":"TP2_FULL_TARGET","ep":4348.3,"xp":4327.35,"sess":"LONDON","oos":1,"eq":532.41},{"id":198,"t":"2026-09-24 02:48","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.69,"pnl":3.01,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4326.9,"xp":4320.41,"sess":"ASIA","oos":1,"eq":535.42},{"id":199,"t":"2026-09-24 13:53","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":1.95,"pnl":9.29,"ex":"REVERSAL_PROFIT_LOCK","ep":4301.8,"xp":4283.57,"sess":"NEW_YORK","oos":1,"eq":544.71},{"id":200,"t":"2026-09-24 16:15","d":"LONG","pb":"MAX_TREND_PULLBACK","ini":"MAX","r":1.32,"pnl":6.14,"ex":"TRAIL_STOP","ep":4303.6,"xp":4315.94,"sess":"NEW_YORK","oos":1,"eq":550.85},{"id":201,"t":"2026-09-24 17:19","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.46,"ex":"STOP_LOSS","ep":4297.6,"xp":4306.95,"sess":"NEW_YORK","oos":1,"eq":545.39},{"id":202,"t":"2026-09-25 02:44","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.57,"ex":"STOP_LOSS","ep":4321.3,"xp":4313.72,"sess":"ASIA","oos":1,"eq":539.82},{"id":203,"t":"2026-09-25 15:21","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-0.74,"pnl":-4.16,"ex":"INSTANT_PRE_SL_CUT","ep":4311.7,"xp":4318.62,"sess":"NEW_YORK","oos":1,"eq":535.66},{"id":204,"t":"2026-09-25 16:59","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.36,"pnl":1.32,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4321.5,"xp":4324.82,"sess":"NEW_YORK","oos":1,"eq":536.98},{"id":205,"t":"2026-09-25 17:37","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-0.74,"pnl":-4.16,"ex":"INSTANT_PRE_SL_CUT","ep":4316.3,"xp":4323.22,"sess":"NEW_YORK","oos":1,"eq":532.82},{"id":206,"t":"2026-09-28 16:45","d":"SHORT","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":-1,"pnl":-5.45,"ex":"STOP_LOSS","ep":4164,"xp":4173.35,"sess":"NEW_YORK","oos":1,"eq":527.37},{"id":207,"t":"2026-09-28 17:17","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.33,"pnl":1.2,"ex":"SMART_STALL_LOCK","ep":4168.9,"xp":4171.99,"sess":"NEW_YORK","oos":1,"eq":528.57},{"id":208,"t":"2026-09-28 23:25","d":"LONG","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":-0.73,"pnl":-4.22,"ex":"REVERSAL_EXIT (DEFENSIVE_CUT)","ep":4160.3,"xp":4154.99,"sess":"ASIA","oos":1,"eq":524.35},{"id":209,"t":"2026-09-30 02:06","d":"LONG","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":-1,"pnl":-5.73,"ex":"STOP_LOSS","ep":4207.7,"xp":4201.91,"sess":"ASIA","oos":1,"eq":518.62},{"id":210,"t":"2026-09-30 09:11","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.33,"pnl":1.13,"ex":"SMART_STALL_LOCK","ep":4220.6,"xp":4217.94,"sess":"LONDON","oos":1,"eq":519.75},{"id":211,"t":"2026-09-30 22:30","d":"SHORT","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":2.44,"pnl":11.29,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4186.3,"xp":4174.92,"sess":"ASIA","oos":1,"eq":531.04},{"id":212,"t":"2026-10-01 02:07","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.61,"ex":"STOP_LOSS","ep":4182.7,"xp":4189.52,"sess":"ASIA","oos":1,"eq":525.43},{"id":213,"t":"2026-10-01 09:21","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.17,"pnl":0.39,"ex":"CONTINUOUS_40R_SL_TRAIL","ep":4188.9,"xp":4187.33,"sess":"LONDON","oos":1,"eq":525.82},{"id":214,"t":"2026-10-01 13:15","d":"SHORT","pb":"MAX_TREND_PULLBACK","ini":"MAX","r":1.58,"pnl":7.41,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4202.2,"xp":4188.67,"sess":"NEW_YORK","oos":1,"eq":533.23},{"id":215,"t":"2026-10-01 15:31","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.45,"ex":"STOP_LOSS","ep":4191.2,"xp":4200.55,"sess":"NEW_YORK","oos":1,"eq":527.78},{"id":216,"t":"2026-10-02 13:37","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.45,"ex":"STOP_LOSS","ep":4226.5,"xp":4217.15,"sess":"NEW_YORK","oos":1,"eq":522.33},{"id":217,"t":"2026-10-02 20:30","d":"SHORT","pb":"ELENA_VWAP_WICK_REV","ini":"ELENA","r":0.5,"pnl":1.82,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4171.1,"xp":4167.98,"sess":"ASIA","oos":1,"eq":524.15},{"id":218,"t":"2026-10-05 02:47","d":"SHORT","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":2.49,"pnl":11.88,"ex":"TIME_EXIT_110M","ep":4179.3,"xp":4161.45,"sess":"ASIA","oos":1,"eq":536.03},{"id":219,"t":"2026-10-06 15:02","d":"LONG","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":0.38,"pnl":1.47,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4189.7,"xp":4193.27,"sess":"NEW_YORK","oos":1,"eq":537.5},{"id":220,"t":"2026-10-06 17:21","d":"SHORT","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":-1,"pnl":-5.52,"ex":"STOP_LOSS","ep":4188.5,"xp":4196.63,"sess":"NEW_YORK","oos":1,"eq":531.98},{"id":221,"t":"2026-10-06 23:25","d":"LONG","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":-0.65,"pnl":-4.08,"ex":"REVERSAL_EXIT (DEFENSIVE_CUT)","ep":4196.3,"xp":4193.01,"sess":"ASIA","oos":1,"eq":527.9},{"id":222,"t":"2026-10-07 07:46","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":2.93,"pnl":13.96,"ex":"TIME_EXTENDED_CHANDELIER_RUNNER","ep":4162,"xp":4144.39,"sess":"LONDON","oos":1,"eq":541.86},{"id":223,"t":"2026-10-07 13:38","d":"SHORT","pb":"LEO_LIQUIDITY_TRAP","ini":"LEO","r":-0.74,"pnl":-4.14,"ex":"INSTANT_PRE_SL_CUT","ep":4109.4,"xp":4116.32,"sess":"NEW_YORK","oos":1,"eq":537.72},{"id":224,"t":"2026-10-07 15:13","d":"LONG","pb":"LEO_LIQUIDITY_TRAP","ini":"LEO","r":0.54,"pnl":2.26,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4133.1,"xp":4138.15,"sess":"NEW_YORK","oos":1,"eq":539.98},{"id":225,"t":"2026-10-08 01:24","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":1.79,"pnl":8.42,"ex":"REVERSAL_PROFIT_LOCK","ep":4148.1,"xp":4162.24,"sess":"ASIA","oos":1,"eq":548.4},{"id":226,"t":"2026-10-08 07:27","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.33,"pnl":1.12,"ex":"SMART_STALL_LOCK","ep":4149.3,"xp":4146.73,"sess":"LONDON","oos":1,"eq":549.52},{"id":227,"t":"2026-10-08 13:18","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.45,"ex":"STOP_LOSS","ep":4147,"xp":4156.17,"sess":"NEW_YORK","oos":1,"eq":544.07},{"id":228,"t":"2026-10-09 13:00","d":"LONG","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":1.68,"pnl":7.72,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4203,"xp":4213.7,"sess":"NEW_YORK","oos":1,"eq":551.79},{"id":229,"t":"2026-10-12 10:45","d":"SHORT","pb":"LEO_SWEEP_TRAP","ini":"LEO","r":3.81,"pnl":18.22,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4203,"xp":4184.32,"sess":"LONDON","oos":1,"eq":570.01},{"id":230,"t":"2026-10-12 15:59","d":"SHORT","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":0.17,"pnl":0.33,"ex":"CONTINUOUS_40R_SL_TRAIL","ep":4188.9,"xp":4187.52,"sess":"NEW_YORK","oos":1,"eq":570.34},{"id":231,"t":"2026-10-13 01:20","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":1.29,"pnl":5.83,"ex":"UNCAPPED_RUNNER_TRAIL","ep":4188.1,"xp":4179.46,"sess":"ASIA","oos":1,"eq":576.17},{"id":232,"t":"2026-10-13 23:01","d":"SHORT","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":0.45,"pnl":1.15,"ex":"BREAKEVEN","ep":4184.2,"xp":4182.49,"sess":"ASIA","oos":1,"eq":577.32},{"id":233,"t":"2026-10-14 08:20","d":"SHORT","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":3.05,"pnl":14.7,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4175.9,"xp":4153.68,"sess":"LONDON","oos":1,"eq":592.02},{"id":234,"t":"2026-10-15 07:17","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-0.74,"pnl":-4.34,"ex":"INSTANT_PRE_SL_CUT","ep":4161.7,"xp":4166.52,"sess":"LONDON","oos":1,"eq":587.68},{"id":235,"t":"2026-10-15 13:04","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-5.45,"ex":"STOP_LOSS","ep":4165.5,"xp":4174.76,"sess":"NEW_YORK","oos":1,"eq":582.23},{"id":236,"t":"2026-10-15 16:00","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.06,"pnl":-0.16,"ex":"CONTINUOUS_40R_SL_TRAIL","ep":4170.3,"xp":4169.76,"sess":"NEW_YORK","oos":1,"eq":582.07},{"id":237,"t":"2026-10-16 01:01","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-1,"pnl":-6.01,"ex":"STOP_LOSS","ep":4178.1,"xp":4173.98,"sess":"ASIA","oos":1,"eq":576.06},{"id":238,"t":"2026-10-16 02:00","d":"LONG","pb":"LEO_SWEEP_TRAP","ini":"LEO","r":3.21,"pnl":15.21,"ex":"TP2_HIT","ep":4176,"xp":4191.73,"sess":"ASIA","oos":1,"eq":591.27},{"id":239,"t":"2026-10-16 09:45","d":"SHORT","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":0.37,"pnl":1.24,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4202.8,"xp":4200.21,"sess":"LONDON","oos":1,"eq":592.51},{"id":240,"t":"2026-10-16 13:38","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":1.82,"pnl":8.58,"ex":"CONTINUOUS_40R_SL_TRAIL","ep":4193.3,"xp":4208.19,"sess":"NEW_YORK","oos":1,"eq":601.09},{"id":241,"t":"2026-10-16 15:15","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":2.26,"pnl":10.85,"ex":"TIME_96M","ep":4200.1,"xp":4178.97,"sess":"NEW_YORK","oos":1,"eq":611.94},{"id":242,"t":"2026-10-16 17:29","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.33,"pnl":1.2,"ex":"SMART_STALL_LOCK","ep":4180.9,"xp":4183.99,"sess":"NEW_YORK","oos":1,"eq":613.14},{"id":243,"t":"2026-10-19 01:38","d":"LONG","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":0.45,"pnl":1.74,"ex":"BREAKEVEN","ep":4192.3,"xp":4195.99,"sess":"ASIA","oos":1,"eq":614.88},{"id":244,"t":"2026-10-20 02:04","d":"SHORT","pb":"MAX_BOX_BREAKOUT","ini":"MAX","r":-0.74,"pnl":-4.24,"ex":"INSTANT_PRE_SL_CUT","ep":4146.5,"xp":4152.14,"sess":"ASIA","oos":1,"eq":610.64},{"id":245,"t":"2026-10-20 07:11","d":"SHORT","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":1.91,"pnl":8.99,"ex":"TIME_EXTENDED_CHANDELIER_RUNNER","ep":4149.5,"xp":4135.77,"sess":"LONDON","oos":1,"eq":619.63},{"id":246,"t":"2026-10-21 02:55","d":"SHORT","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":-1,"pnl":-5.57,"ex":"STOP_LOSS","ep":4134.3,"xp":4141.62,"sess":"ASIA","oos":1,"eq":614.06},{"id":247,"t":"2026-10-21 07:32","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-0.02,"pnl":-0.64,"ex":"TIME_96M","ep":4138.4,"xp":4138.55,"sess":"LONDON","oos":1,"eq":613.42},{"id":248,"t":"2026-10-21 13:02","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.33,"pnl":1.11,"ex":"SMART_STALL_LOCK","ep":4151.7,"xp":4154.23,"sess":"NEW_YORK","oos":1,"eq":614.53},{"id":249,"t":"2026-10-22 02:38","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":3.09,"pnl":14.89,"ex":"TP2_FULL_TARGET","ep":4135.1,"xp":4112.05,"sess":"ASIA","oos":1,"eq":629.42},{"id":250,"t":"2026-10-22 07:29","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.33,"pnl":1.21,"ex":"SMART_STALL_LOCK","ep":4109.6,"xp":4106.51,"sess":"LONDON","oos":1,"eq":630.63},{"id":251,"t":"2026-10-22 08:50","d":"SHORT","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":2.39,"pnl":11.51,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4104.9,"xp":4082.55,"sess":"LONDON","oos":1,"eq":642.14},{"id":252,"t":"2026-10-23 01:01","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":4.19,"pnl":20.3,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4040.6,"xp":4014.44,"sess":"ASIA","oos":1,"eq":662.44},{"id":253,"t":"2026-10-23 08:29","d":"SHORT","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":-1,"pnl":-5.46,"ex":"STOP_LOSS","ep":4029.6,"xp":4038.39,"sess":"LONDON","oos":1,"eq":656.98},{"id":254,"t":"2026-10-23 16:19","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.52,"pnl":2.17,"ex":"TIME_96M","ep":4016.2,"xp":4011.34,"sess":"NEW_YORK","oos":1,"eq":659.15},{"id":255,"t":"2026-10-26 02:23","d":"SHORT","pb":"LEO_LIQUIDITY_TRAP","ini":"LEO","r":-1,"pnl":-5.43,"ex":"STOP_LOSS","ep":4004.4,"xp":4013.75,"sess":"ASIA","oos":1,"eq":653.72},{"id":256,"t":"2026-10-26 17:55","d":"LONG","pb":"ELENA_VWAP_VSA_POCKET","ini":"ELENA","r":-1,"pnl":-5.53,"ex":"STOP_LOSS","ep":4034.6,"xp":4026.96,"sess":"NEW_YORK","oos":1,"eq":648.19},{"id":257,"t":"2026-10-28 10:22","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":0.23,"pnl":0.51,"ex":"CONTINUOUS_40R_SL_TRAIL","ep":4060.6,"xp":4059.11,"sess":"LONDON","oos":1,"eq":648.7},{"id":258,"t":"2026-10-28 23:45","d":"LONG","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":-1,"pnl":-5.43,"ex":"STOP_LOSS","ep":4066,"xp":4056.65,"sess":"ASIA","oos":1,"eq":643.27},{"id":259,"t":"2026-10-29 01:11","d":"LONG","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":1.29,"pnl":5.94,"ex":"UNCAPPED_RUNNER_TRAIL","ep":4063.9,"xp":4074.26,"sess":"ASIA","oos":1,"eq":649.21},{"id":260,"t":"2026-10-29 07:15","d":"SHORT","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":1.32,"pnl":5.96,"ex":"TRAIL_STOP","ep":4044.6,"xp":4036.28,"sess":"LONDON","oos":1,"eq":655.17},{"id":261,"t":"2026-10-29 09:21","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":-0.32,"pnl":-2.03,"ex":"TIME_96M","ep":4038.7,"xp":4041.69,"sess":"LONDON","oos":1,"eq":653.14},{"id":262,"t":"2026-10-29 23:03","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":1.1,"pnl":4.9,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":4028.8,"xp":4021.48,"sess":"ASIA","oos":1,"eq":658.04},{"id":263,"t":"2026-10-30 08:08","d":"SHORT","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":-1,"pnl":-5.43,"ex":"STOP_LOSS","ep":3987.7,"xp":3997.05,"sess":"LONDON","oos":1,"eq":652.61},{"id":264,"t":"2026-10-30 10:02","d":"SHORT","pb":"KAI_SMC_OTE_TREND","ini":"KAI","r":8.22,"pnl":40.66,"ex":"ADAPTIVE_CHANDELIER_40R_TRAIL","ep":3999.3,"xp":3922.48,"sess":"LONDON","oos":1,"eq":693.27},{"id":265,"t":"2026-10-30 15:08","d":"SHORT","pb":"LEO_KILLZONE_SWEEP","ini":"LEO","r":2.51,"pnl":12.14,"ex":"TIME_EXTENDED_CHANDELIER_RUNNER","ep":3922.1,"xp":3898.62,"sess":"NEW_YORK","oos":1,"eq":705.41}];
+
+    // 16 Floor Agents Rearranged into Intuitive, Logical Explainable Pipeline:
+    // Col 1: Victor (Command Boss)
+    // Col 2: Sarah (Psychologist), Ethan (Math), David (Veteran), Ryan (Execution)
+    // Col 3: Arthur (Macro), Clara/Ben (News)
+    // Col 4: Sam (L2 DOM), Jack (VSA Volume), Omar (CVD Delta)
+    // Col 5 & 6: Leo (Sweeps), Max (Traps), Kai (Fib), Elena (Price Action), Nina (SMC), Marcus (Breakout)
+    const NODES = [
+      // -----------------------------------------------------------------------
+      // TIER 1: COMMAND & ARBITRATION (Col 1, X: 115)
+      // -----------------------------------------------------------------------
+      {
+        id: 'victor',
+        num: '01',
+        name: 'VICTOR',
+        tier: 'TIER 1: MASTER COMMAND',
+        domain: 'COMMAND',
+        domainLabel: 'SEO',
+        work: 'SEO & Master Arbitrator / Desk Command',
+        color: '#f59e0b', // Gold
+        x: 115,
+        y: 330,
+        r: 68,
+        icon: 'master',
+        sub: 'CONSENSUS: 15.8 (12/16 CONFIRM)',
+        pill: '● MASTER CONSENSUS SINK // 15.8',
+        algoDesc: 'SEO & Master Command Boss. Synthesizes inputs from all 15 floor specialists. Requires >= 13.0 threshold. Checks vetoes from Sarah (psychology), Ethan (risk math), Arthur (market structure), and Clara (news) before issuing order token to RYAN. Supports direct LLM-free bypass from Omar.',
+        inbound: ['sarah', 'ethan', 'david', 'arthur', 'clara', 'omar', 'ryan'],
+        outbound: ['ryan'],
+        telemetry: {
+          consensus_threshold: '13.0+',
+          current_score: 15.8,
+          confirming_specialists: 12,
+          veto_status: 'CLEAR',
+          decision: 'FIRE_BASELINE_TRADE'
+        }
+      },
+
+      // -----------------------------------------------------------------------
+      // TIER 2: RISK, PSYCHOLOGY & QUANT MATH (Col 2, X: 350)
+      // -----------------------------------------------------------------------
+      {
+        id: 'sarah',
+        num: '13',
+        name: 'SARAH',
+        tier: 'TIER 2: RISK & PSYCHOLOGY',
+        domain: 'RISK_MATH',
+        domainLabel: 'FLOOR PSYCHOLOGIST',
+        work: 'Floor Senior Psychologist & Anti-FOMO Guard',
+        color: '#ec4899', // Hot Pink / Fuchsia
+        x: 350,
+        y: 110,
+        r: 44,
+        icon: 'lock',
+        sub: 'TILT: 0.0 &bull; DISCIPLINE: 100',
+        pill: '0.0 TILT &bull; EMOTION GUARD',
+        algoDesc: 'Floor Senior Psychologist. Guards emotional discipline, monitors consecutive drawdowns, trade pacing, and tilt status. Holds hard veto authority over Victor if trader experiences revenge tilt.',
+        inbound: ['arthur'],
+        outbound: ['victor'],
+        telemetry: { tilt_metric: 0.0, discipline_score: 100, consecutive_losses: 0, emotional_state: 'OPTIMAL' }
+      },
+      {
+        id: 'ethan',
+        num: '15',
+        name: 'ETHAN',
+        tier: 'TIER 2: RISK & QUANT MATH',
+        domain: 'RISK_MATH',
+        domainLabel: 'QUANT MATHEMATICIAN',
+        work: 'Quant Math & 0.85x ATR Initial SL Sizing',
+        color: '#6366f1', // Indigo / Electric Blue
+        x: 350,
+        y: 250,
+        r: 44,
+        icon: 'filter',
+        sub: '0.5348 oz &bull; 0.85x ATR SL',
+        pill: '0.85x ATR SL &bull; SIZING CALC',
+        algoDesc: 'Quant Risk Mathematician. Calculates precision 0.85x ATR initial stop loss and fractional micro-lot sizing (0.5348 oz equivalent) ensuring fixed $5 risk per trade on $100 account balance.',
+        inbound: ['arthur', 'clara'],
+        outbound: ['victor', 'ryan'],
+        telemetry: { atr_14: '5.2 pts', sl_distance: '4.42 pts (0.85x)', fee_inclusive_risk: '$5.48', contract: '1 MGC' }
+      },
+      {
+        id: 'david',
+        num: '14',
+        name: 'DAVID',
+        tier: 'TIER 2: EXPERT TRADER AUDIT',
+        domain: 'RISK_MATH',
+        domainLabel: 'PROFITABLE / EXPERT TRADER',
+        work: 'Profitable Expert Trader & 20Y Memory Bank',
+        color: '#a855f7', // Purple
+        x: 350,
+        y: 390,
+        r: 44,
+        icon: 'badge',
+        sub: '45 k-NN TWINS &bull; 68.2% WR',
+        pill: '45 k-NN HISTORICAL BENCHMARK',
+        algoDesc: 'Profitable & Expert Trader. Audits current setup against 45 nearest historical k-NN twin scenarios over 10 years of gold market regimes. Receives direct macro clearances from Arthur and LLM bypass order flow from Omar & Jack.',
+        inbound: ['clara', 'sam', 'arthur', 'omar', 'jack'],
+        outbound: ['victor'],
+        telemetry: { knn_matches: 45, historical_wr: '68.2%', expected_pf: 2.41, audit_decision: 'CONFIRMED' }
+      },
+      {
+        id: 'ryan',
+        num: '16',
+        name: 'RYAN',
+        tier: 'TIER 2: TRADOVATE EXECUTION',
+        domain: 'EXECUTION',
+        domainLabel: '40R CHANDELIER EXECUTION',
+        work: 'Tradovate Direct Execution & 40R Trail',
+        color: '#f43f5e', // Rose / Crimson
+        x: 350,
+        y: 530,
+        r: 48,
+        icon: 'shield',
+        sub: '40R TRAIL (53W / 0L &bull; +$473.51)',
+        pill: 'TRADOVATE 40R TRAIL RUNNER',
+        algoDesc: 'Execution Specialist & WebSocket Order Engine. Receives order tokens from Victor, executes via Tradovate WebSocket, and manages the 40R Adaptive Chandelier Trailing stop for the 30% moonbag runner.',
+        inbound: ['victor', 'ethan'],
+        outbound: ['victor'],
+        telemetry: { execution_mode: 'WS_DIRECT', trail_type: '40R_CHANDELIER', runner_pnl: '+$473.51', trail_win_rate: '100%' }
+      },
+
+      // -----------------------------------------------------------------------
+      // TIER 3: MACRO REGIME & NEWS SENTINELS (Col 3, X: 610)
+      // -----------------------------------------------------------------------
+      {
+        id: 'arthur',
+        num: '02',
+        name: 'ARTHUR',
+        tier: 'TIER 3: MARKET STRUCTURE',
+        domain: 'MACRO',
+        domainLabel: 'MARKET STRUCTURE DIRECTOR',
+        work: 'Market Structure Director & Chop Filter',
+        color: '#38bdf8', // Sky Blue
+        x: 610,
+        y: 220,
+        r: 50,
+        icon: 'sigma',
+        sub: 'CHOP: 31.4 &bull; OVERLAP: 22%',
+        pill: 'CHOP 31.4 &bull; EXPANSION VALID',
+        algoDesc: 'Market Structure Director & Choppiness Filter. Analyzes 1H/4H dealing ranges and 50-bar overlap. Allows trades when CHOP < 38.5. Issues hard macro veto if market structure is broken or trapped in consolidation chop.',
+        inbound: ['sam', 'jack', 'leo'],
+        outbound: ['sarah', 'ethan', 'david', 'victor'],
+        telemetry: { chop_index: 31.4, overlap_pct: '22%', trend_state: 'EXPANSION', macro_veto: false }
+      },
+      {
+        id: 'clara',
+        num: '12',
+        name: 'CLARA/BEN',
+        tier: 'TIER 3: NEWS SENTINEL',
+        domain: 'MACRO',
+        domainLabel: 'ECONOMIC NEWS SENTINEL',
+        work: 'ForexFactory Calendar Sentinel & Vol Shield',
+        color: '#fb923c', // Orange/Amber
+        x: 610,
+        y: 430,
+        r: 50,
+        icon: 'database',
+        sub: 'CALENDAR FFED &bull; PRE-SPIKE',
+        pill: 'FOREXFACTORY NEWS SHIELD',
+        algoDesc: 'Economic News Sentinel. Continuous ForexFactory calendar monitoring. Enforces pre-news execution lockout. NOTE: If LLM is offline or disabled, order flow automatically bypasses Clara via Omar and Jack directly to David and Victor.',
+        inbound: ['jack', 'omar', 'kai'],
+        outbound: ['ethan', 'david', 'victor'],
+        telemetry: { next_high_impact: 'FOMC (T-142m)', lockout_window: 'ARMED_30M_PRE', llm_bypass: 'READY', news_veto: false }
+      },
+
+      // -----------------------------------------------------------------------
+      // TIER 4: ORDER FLOW & LEVEL 2 SPECIALISTS (Col 4, X: 870)
+      // -----------------------------------------------------------------------
+      {
+        id: 'sam',
+        num: '09',
+        name: 'SAM',
+        tier: 'TIER 4: L2 ORDER BOOK',
+        domain: 'ORDER_FLOW',
+        domainLabel: 'MBP-10 L2 DEPTH / DOM',
+        work: 'Level 2 MBP-10 Order Book Depth & Icebergs',
+        color: '#10b981', // Emerald
+        x: 870,
+        y: 130,
+        r: 42,
+        icon: 'database',
+        sub: '2.9x BID STACK &bull; 68.8% WR',
+        pill: '2.9x BID STACK &bull; L2 DOM',
+        algoDesc: 'MBP-10 Order Book Depth Specialist. Consumes Databento 10-level full depth stream to verify that price action sweeps and box traps are supported by real resting institutional bid/ask liquidity walls.',
+        inbound: ['max', 'leo', 'kai'],
+        outbound: ['arthur', 'david', 'jack'],
+        telemetry: { bid_depth_ratio: '2.9x', resting_wall: '3920.0 (340 lots)', iceberg_refill: true }
+      },
+      {
+        id: 'jack',
+        num: '11',
+        name: 'JACK',
+        tier: 'TIER 4: VOLUME SPREAD',
+        domain: 'ORDER_FLOW',
+        domainLabel: 'VOLUME SPREAD ANALYSIS',
+        work: 'Volume Spread Analysis (VSA Stopping Volume)',
+        color: '#84cc16', // Lime
+        x: 870,
+        y: 330,
+        r: 42,
+        icon: 'barChart',
+        sub: 'STOPPING VOL Z>2.74 &bull; 100% CONFIRM',
+        pill: 'VSA STOPPING VOL Z>2.74',
+        algoDesc: 'Volume Spread Analysis (VSA). Identifies stopping volume, absorption pins, and climax churn. Requires volume Z-Score > 2.0 to confirm that smart money is absorbing the retail momentum. Can directly bypass Clara to David.',
+        inbound: ['max', 'elena', 'kai', 'sam'],
+        outbound: ['arthur', 'clara', 'omar', 'david'],
+        telemetry: { volume_z_score: 2.74, spread_type: 'WIDE_ULTRA_HIGH_VOL', absorption_state: 'CONFIRMED' }
+      },
+      {
+        id: 'omar',
+        num: '10',
+        name: 'OMAR',
+        tier: 'TIER 4: CVD ORDER FLOW',
+        domain: 'ORDER_FLOW',
+        domainLabel: 'CVD DELTA ABSORPTION',
+        work: 'Cumulative Volume Delta (CVD) Absorption',
+        color: '#00ffa3', // Mint
+        x: 870,
+        y: 520,
+        r: 42,
+        icon: 'sliders',
+        sub: 'CVD DIVERGENCE &bull; FLIP CUT GUARD',
+        pill: 'CVD DELTA ABSORPTION',
+        algoDesc: 'Cumulative Volume Delta (CVD) Specialist. Detects aggressive market order absorption and delta divergence to signal turns. Has direct LLM bypass conduits to David and Victor running cleanly below Clara.',
+        inbound: ['marcus', 'nina', 'jack'],
+        outbound: ['clara', 'david', 'victor'],
+        telemetry: { cvd_slope: '+480 lots/min', absorption_delta: '-120 vs +450', divergence: 'BULLISH' }
+      },
+
+      // -----------------------------------------------------------------------
+      // TIER 5 & 6: PRICE ACTION, FIBONACCI & SMC EXPERTS (Col 5 & 6, X: 1130 & 1380)
+      // -----------------------------------------------------------------------
+      // Col 5 (X: 1130)
+      {
+        id: 'leo',
+        num: '05',
+        name: 'LEO',
+        tier: 'TIER 5: PRICE ACTION SWEEPS',
+        domain: 'PRICE_ACTION',
+        domainLabel: 'ICT KILLZONE SWEEPS',
+        work: 'ICT London & NY Killzone Liquidity Sweeps',
+        color: '#06b6d4', // Cyan
+        x: 1130,
+        y: 130,
+        r: 42,
+        icon: 'grid',
+        sub: '60.4% WR &bull; 123 TRADES',
+        pill: 'ICT KILLZONE SWEEPS',
+        algoDesc: 'ICT Killzone Specialist. Monitors session high/low liquidity raids at 07:00 London and 13:30 NY opens. Receives trap fakeouts from Max and EQH/EQL pools from Nina; routes sweep triggers to Elena and Sam.',
+        inbound: ['max', 'nina'],
+        outbound: ['sam', 'elena', 'arthur'],
+        telemetry: { session: 'NEW_YORK', sweep_pips: 14.2, fvg_status: 'FILLED' }
+      },
+      {
+        id: 'kai',
+        num: '06',
+        name: 'KAI',
+        tier: 'TIER 5: FIBONACCI SMC',
+        domain: 'PRICE_ACTION',
+        domainLabel: 'FIBONACCI SMC OTE',
+        work: 'Fibonacci SMC Optimal Trade Entry (61.8-78.6%)',
+        color: '#00f2fe', // Cyan
+        x: 1130,
+        y: 330,
+        r: 42,
+        icon: 'cpu',
+        sub: '61.8%-78.6% &bull; +$109.07 NET',
+        pill: 'FIBONACCI OTE GOLDEN POCKET',
+        algoDesc: 'Fibonacci SMC Optimal Trade Entry (OTE). Calculates exact 61.8% to 78.6% retracement sweet-spots inside Elena’s 1M displacement legs, cross-referenced with Nina’s Fair Value Gaps.',
+        inbound: ['elena', 'nina', 'marcus'],
+        outbound: ['jack', 'sam', 'clara'],
+        telemetry: { ote_level: '70.5%', confluence: 'FVG_DISPLACEMENT', score: 9.4 }
+      },
+      {
+        id: 'nina',
+        num: '04',
+        name: 'NINA',
+        tier: 'TIER 5: SMC FVG & POOLS',
+        domain: 'PRICE_ACTION',
+        domainLabel: 'SMC FVG & POOL SWEEPS',
+        work: 'Smart Money Concepts (SMC) FVG & Liquidity Pools',
+        color: '#c084fc', // Purple
+        x: 1130,
+        y: 520,
+        r: 42,
+        icon: 'network',
+        sub: '65.3% WR &bull; +$478.50 NET',
+        pill: 'SMC FVG & EQUAL HIGHS/LOWS',
+        algoDesc: 'Smart Money Concepts (SMC) Specialist. Identifies Fair Value Gaps (FVG) and Equal Highs/Lows (EQH/EQL) pools. Shares raid targets with Leo, Golden Pocket alignment with Kai, and delta absorption with Omar.',
+        inbound: ['marcus'],
+        outbound: ['leo', 'kai', 'omar'],
+        telemetry: { fvg_gap_size: '3.4 pts', eqh_sweep: 'CONFIRMED', mitigation: 'READY' }
+      },
+
+      // Col 6 (X: 1380)
+      {
+        id: 'max',
+        num: '08',
+        name: 'MAX',
+        tier: 'TIER 5: TRAP REVERSALS',
+        domain: 'PRICE_ACTION',
+        domainLabel: 'TRAP REVERSAL SPECIALIST',
+        work: 'Box Breakout & Trap Reversal Specialist',
+        color: '#f97316', // Orange
+        x: 1380,
+        y: 130,
+        r: 42,
+        icon: 'target',
+        sub: '78.7% WR &bull; +$566.73 NET',
+        pill: 'BOX BREAKOUT TRAP SQUEEZE',
+        algoDesc: 'Box Breakout & Trap Reversal Specialist. Receives range boundaries from Marcus (VAH/VAL). Identifies false breakouts and spring traps, transmitting squeeze alerts to Leo (killzones), Sam (L2 limit walls), Jack (stopping volume), and Elena (1M MSS).',
+        inbound: ['marcus'],
+        outbound: ['leo', 'sam', 'jack', 'elena', 'marcus'],
+        telemetry: { box_range: '3890-3915', fakeout_wick: '3.2x', reversal_power: 0.88 }
+      },
+      {
+        id: 'elena',
+        num: '07',
+        name: 'ELENA',
+        tier: 'TIER 5: PRICE ACTION MSS',
+        domain: 'PRICE_ACTION',
+        domainLabel: 'PRICE ACTION & 1M MSS',
+        work: 'Pure Price Action & 1M Market Structure Shift',
+        color: '#f43f5e', // Rose
+        x: 1380,
+        y: 330,
+        r: 42,
+        icon: 'eye',
+        sub: '71.4% WR &bull; +$155.72 NET',
+        pill: '1M MSS DISPLACEMENT & WICKS',
+        algoDesc: 'Pure Price Action & 1-Minute Market Structure Shift (MSS). Receives session liquidity sweep triggers from Leo and trap wicks from Max; detects displacement candles and rejection wicks, transmitting impulse anchors to Kai (Fib OTE) and Jack (volume spread).',
+        inbound: ['leo', 'max'],
+        outbound: ['kai', 'jack'],
+        telemetry: { wick_ratio: '2.8x', mss_displacement: 'BULLISH', impulse_pts: 8.5 }
+      },
+      {
+        id: 'marcus',
+        num: '03',
+        name: 'MARCUS',
+        tier: 'TIER 5: VALUE AREA EXPANSION',
+        domain: 'PRICE_ACTION',
+        domainLabel: 'BREAKOUT & VALUE AREA',
+        work: 'Value Area & Breakout Expansion (VAH/VAL/POC)',
+        color: '#38bdf8', // Sky Blue
+        x: 1380,
+        y: 520,
+        r: 42,
+        icon: 'terminal',
+        sub: '67.8% WR &bull; +$398.69 NET',
+        pill: 'VAH / VAL / POC EXPANSION',
+        algoDesc: 'Value Area & Breakout Expansion Specialist. Maps Volume Profile (VAH, VAL, POC). Transmits range boundaries to Max (for false breakout traps), to Nina (for edge FVGs), to Kai (for Fib 61.8% confluence), and to Omar (for CVD expansion confirmation).',
+        inbound: ['max'],
+        outbound: ['max', 'nina', 'kai', 'omar'],
+        telemetry: { vah: 3935.5, val: 3902.0, poc: 3921.4, expansion_tier: 'T2' }
+      }
+    ];
+
+    // Optic Fiber Cable Connections: Full, Realistic Interconnected Neural Mesh
+    // Multi-Directional Confluences across Rows and Columns
+    const CABLES = [
+      // =======================================================================
+      // 1. PRICE ACTION SPECIALISTS CROSS-CONFLUENCES (Col 6 <-> Col 5)
+      // =======================================================================
+      { from: 'marcus', to: 'max',   color: '#38bdf8', speed: 2.7, label: 'VAH/VAL Range Extremes &rarr; Box Trap Setup' },
+      { from: 'marcus', to: 'nina',  color: '#38bdf8', speed: 2.8, label: 'Value Area Boundaries &rarr; FVG Retest Zone' },
+      { from: 'marcus', to: 'kai',   color: '#38bdf8', speed: 2.6, label: 'Value Area POC / VAL &rarr; Fib 61.8% Retracement Floor' },
+      { from: 'max',    to: 'marcus',color: '#f97316', speed: 2.5, label: 'Trap Reversal Confirmation &rarr; Value Area Return' },
+      { from: 'max',    to: 'leo',   color: '#f97316', speed: 2.5, label: 'False Box Breakout &rarr; Killzone Sweep Timing' },
+      { from: 'max',    to: 'elena', color: '#f97316', speed: 2.5, label: 'Trap Reversal Wick &rarr; 1M MSS Displacement' },
+      { from: 'nina',   to: 'leo',   color: '#c084fc', speed: 2.6, label: 'Equal Highs / Lows (EQH/EQL) &rarr; Raid Targets' },
+      { from: 'leo',    to: 'elena', color: '#06b6d4', speed: 2.4, label: 'Session Liquidity Sweep &rarr; 1M MSS Trigger' },
+      { from: 'elena',  to: 'kai',   color: '#f43f5e', speed: 2.5, label: '1M MSS Displacement Leg &rarr; Fib OTE Anchors' },
+      { from: 'nina',   to: 'kai',   color: '#c084fc', speed: 2.4, label: 'Fair Value Gap (FVG) &bull; Golden Pocket Confluence' },
+
+      // =======================================================================
+      // 2. SPECIALISTS &rarr; ORDER FLOW VERIFICATION (Col 6/5 &rarr; Col 4)
+      // =======================================================================
+      { from: 'max',    to: 'sam',   color: '#f97316', speed: 2.4, label: 'Trap Fakeout Squeeze &rarr; L2 Resting Bid/Ask Wall' },
+      { from: 'max',    to: 'jack',  color: '#f97316', speed: 2.6, label: 'Trap Candle Wick &rarr; VSA Stopping Volume Z>2.0' },
+      { from: 'leo',    to: 'sam',   color: '#06b6d4', speed: 2.3, label: 'ICT Sweep Liquidity &rarr; MBP-10 Depth Balance' },
+      { from: 'elena',  to: 'jack',  color: '#f43f5e', speed: 2.3, label: 'Rejection Wick (>2.5x) &rarr; Volume Climax Churn' },
+      { from: 'kai',    to: 'jack',  color: '#00f2fe', speed: 2.2, label: '61.8%-78.6% Retest &rarr; VSA Absorption Pin' },
+      { from: 'kai',    to: 'sam',   color: '#00f2fe', speed: 2.5, label: 'OTE Entry Price &rarr; L2 Depth Fill Queue' },
+      { from: 'nina',   to: 'omar',  color: '#c084fc', speed: 2.4, label: 'FVG Tap &rarr; CVD Delta Absorption Divergence' },
+      { from: 'marcus', to: 'omar',  color: '#38bdf8', speed: 2.6, label: 'Value Area Breakout &rarr; Cumulative Delta Surge' },
+
+      // =======================================================================
+      // 3. ORDER FLOW TRIAD INTER-COMMUNICATION (Col 4 SAM <-> JACK <-> OMAR)
+      // =======================================================================
+      { from: 'sam',    to: 'jack',  color: '#10b981', speed: 2.1, label: 'L2 Resting Walls &bull; Traded Volume Match' },
+      { from: 'jack',   to: 'omar',  color: '#84cc16', speed: 2.2, label: 'Volume Spread &bull; Delta Aggression Match' },
+
+      // =======================================================================
+      // 4. ORDER FLOW &rarr; MACRO & NEWS GATEWAYS (Col 4/5 &rarr; Col 3)
+      // =======================================================================
+      { from: 'leo',    to: 'arthur', color: '#06b6d4', speed: 2.1, label: 'Killzone Timing &rarr; 1H Dealing Range Structure' },
+      { from: 'sam',    to: 'arthur', color: '#10b981', speed: 2.0, label: 'L2 DOM Depth Stack &rarr; Macro Chop Filter' },
+      { from: 'jack',   to: 'arthur', color: '#84cc16', speed: 2.1, label: 'Stopping Volume Climax &rarr; Trend Expansion' },
+      { from: 'jack',   to: 'clara',  color: '#84cc16', speed: 2.2, label: 'Abnormal Vol Surge &rarr; Pre-News Event Alarm' },
+      { from: 'kai',    to: 'clara',  color: '#00f2fe', speed: 2.3, label: 'OTE Leg Length &rarr; News Slippage Buffer' },
+      { from: 'omar',   to: 'clara',  color: '#00ffa3', speed: 2.3, label: 'Delta Surge &rarr; Economic Calendar Lockout' },
+
+      // =======================================================================
+      // 5. MACRO & NEWS GATEWAYS &rarr; RISK, PSYCHOLOGY & MATH (Col 3 &rarr; Col 2)
+      // =======================================================================
+      { from: 'arthur', to: 'sarah',  color: '#38bdf8', speed: 2.2, label: 'Structure Regimes &rarr; Emotional Tilt Veto Guard' },
+      { from: 'arthur', to: 'ethan',  color: '#38bdf8', speed: 2.0, label: 'Macro Volatility Range &rarr; 0.85x ATR SL Calculation' },
+      { from: 'arthur', to: 'david',  color: '#38bdf8', speed: 2.1, label: 'Macro Structure Regime &rarr; 45 k-NN Twin Historical Audit' },
+      { from: 'clara',  to: 'ethan',  color: '#fb923c', speed: 2.1, label: 'Economic Calendar Clearance &rarr; Fixed $5 Risk' },
+      { from: 'clara',  to: 'david',  color: '#fb923c', speed: 2.2, label: 'News Regime &rarr; 20-Year Historical Twin Search' },
+      { from: 'sam',    to: 'david',  color: '#10b981', speed: 2.5, label: 'L2 Book Balance &rarr; 45 k-NN Institutional Audit' },
+
+      // =======================================================================
+      // 5B. LLM NEWS BYPASS CONDUITS (FAILSAFE RUNNING BESIDE & BELOW CLARA/BEN)
+      // =======================================================================
+      { from: 'omar',   to: 'david',  color: '#00ffa3', speed: 2.3, label: '⚡ LLM BYPASS: CVD Delta &rarr; David (Under Clara)', isBypass: true },
+      { from: 'omar',   to: 'victor', color: '#00ffa3', speed: 2.0, label: '⚡ LLM BYPASS: Direct Delta Token &rarr; Victor (Under Clara)', isBypass: true },
+      { from: 'jack',   to: 'david',  color: '#84cc16', speed: 2.2, label: '⚡ LLM BYPASS: Stopping Volume &rarr; David (Over Clara)', isBypass: true },
+
+      // =======================================================================
+      // 6. RISK, PSYCHOLOGY & MATH &rarr; MASTER ARBITRATOR (Col 2/3 &rarr; Col 1 VICTOR)
+      // =======================================================================
+      { from: 'sarah',  to: 'victor', color: '#ec4899', speed: 1.8, label: 'Discipline 100 &bull; Tilt 0.0 Clearance Approval' },
+      { from: 'ethan',  to: 'victor', color: '#6366f1', speed: 1.7, label: '0.85x ATR SL &amp; 0.5348 oz Lot Size Cleared' },
+      { from: 'david',  to: 'victor', color: '#a855f7', speed: 1.9, label: '45 k-NN Historical Twins &bull; 68.2% WR Validated' },
+      { from: 'arthur', to: 'victor', color: '#38bdf8', speed: 2.0, label: 'Macro Trend Direction: CHOP 31.4 CLEAR' },
+      { from: 'clara',  to: 'victor', color: '#fb923c', speed: 1.9, label: 'News Lockout Status: ALL CLEAR' },
+
+      // =======================================================================
+      // 7. MASTER BOSS & QUANT MATH &rarr; TRADOVATE EXECUTION (VICTOR/ETHAN &rarr; RYAN)
+      // =======================================================================
+      { from: 'victor', to: 'ryan',   color: '#f59e0b', speed: 1.5, label: '⚡ MASTER EXECUTION TOKEN (FIRE TRADOVATE ORDER)' },
+      { from: 'ethan',  to: 'ryan',   color: '#6366f1', speed: 2.0, label: 'Initial SL Price &amp; Micro-Lot Sizing Matrix' },
+      { from: 'ryan',   to: 'victor', color: '#f43f5e', speed: 1.8, label: 'Tradovate Order Fill &bull; 40R Trail Runner Telemetry' }
+    ];
+
+    // Helper: Map node by ID
+    const nodeMap = {};
+    NODES.forEach(n => nodeMap[n.id] = n);
+
+    // =========================================================================
+    // SVG ICONS GENERATOR (NEON VECTOR GLYPHS)
+    // =========================================================================
+    function getIconSvg(type, color) {
+      switch(type) {
+        case 'master':
+          return `
+            <circle cx="0" cy="-6" r="3" fill="${color}" />
+            <circle cx="-6" cy="0" r="3" fill="${color}" />
+            <circle cx="6" cy="0" r="3" fill="${color}" />
+            <circle cx="0" cy="6" r="3" fill="${color}" />
+            <circle cx="-4" cy="-4" r="2" fill="#ffffff" />
+            <circle cx="4" cy="-4" r="2" fill="#ffffff" />
+            <circle cx="-4" cy="4" r="2" fill="#ffffff" />
+            <circle cx="4" cy="4" r="2" fill="#ffffff" />
+          `;
+        case 'sigma':
+          return `
+            <path d="M-7,-7 L7,-7 L0,0 L7,7 L-7,7" fill="none" stroke="${color}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+          `;
+        case 'database':
+          return `
+            <ellipse cx="0" cy="-6" rx="7" ry="3" fill="none" stroke="${color}" stroke-width="1.8"/>
+            <path d="M-7,-6 L-7,0 C-7,1.8 0,3 7,0 L7,-6" fill="none" stroke="${color}" stroke-width="1.8"/>
+            <path d="M-7,0 L-7,6 C-7,7.8 0,9 7,6 L7,0" fill="none" stroke="${color}" stroke-width="1.8"/>
+          `;
+        case 'shield':
+          return `
+            <path d="M0,-8 L6,-5 L6,1 C6,5 0,8 0,8 C0,8 -6,5 -6,1 L-6,-5 Z" fill="none" stroke="${color}" stroke-width="2"/>
+          `;
+        case 'grid':
+          return `
+            <rect x="-6" y="-6" width="5" height="5" rx="1" fill="${color}"/>
+            <rect x="1" y="-6" width="5" height="5" rx="1" fill="${color}"/>
+            <rect x="-6" y="1" width="5" height="5" rx="1" fill="${color}"/>
+            <rect x="1" y="1" width="5" height="5" rx="1" fill="${color}"/>
+          `;
+        case 'cpu':
+          return `
+            <rect x="-5" y="-5" width="10" height="10" rx="2" fill="none" stroke="${color}" stroke-width="1.8"/>
+            <circle cx="0" cy="0" r="2" fill="${color}"/>
+            <line x1="0" y1="-7" x2="0" y2="-5" stroke="${color}" stroke-width="1.5"/>
+            <line x1="0" y1="5" x2="0" y2="7" stroke="${color}" stroke-width="1.5"/>
+            <line x1="-7" y1="0" x2="-5" y2="0" stroke="${color}" stroke-width="1.5"/>
+            <line x1="5" y1="0" x2="7" y2="0" stroke="${color}" stroke-width="1.5"/>
+          `;
+        case 'eye':
+          return `
+            <path d="M-8,0 C-4,-5 4,-5 8,0 C4,5 -4,5 -8,0 Z" fill="none" stroke="${color}" stroke-width="1.8"/>
+            <circle cx="0" cy="0" r="2.5" fill="${color}"/>
+          `;
+        case 'barChart':
+          return `
+            <line x1="-6" y1="5" x2="-6" y2="-1" stroke="${color}" stroke-width="2.2" stroke-linecap="round"/>
+            <line x1="-1" y1="5" x2="-1" y2="-7" stroke="${color}" stroke-width="2.2" stroke-linecap="round"/>
+            <line x1="4" y1="5" x2="4" y2="1" stroke="${color}" stroke-width="2.2" stroke-linecap="round"/>
+          `;
+        case 'badge':
+          return `
+            <path d="M0,-7 L6,-4 L6,2 L0,7 L-6,2 L-6,-4 Z" fill="none" stroke="${color}" stroke-width="1.8"/>
+            <path d="M-2.5,-0.5 L-0.5,1.5 L3,-2" fill="none" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          `;
+        case 'terminal':
+          return `
+            <path d="M-6,-4 L-2,0 L-6,4" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round"/>
+            <line x1="0" y1="4" x2="5" y2="4" stroke="${color}" stroke-width="2" stroke-linecap="round"/>
+          `;
+        case 'network':
+          return `
+            <circle cx="0" cy="-5" r="2" fill="${color}"/>
+            <circle cx="-5" cy="4" r="2" fill="${color}"/>
+            <circle cx="5" cy="4" r="2" fill="${color}"/>
+            <line x1="0" y1="-5" x2="-5" y2="4" stroke="${color}" stroke-width="1.2"/>
+            <line x1="0" y1="-5" x2="5" y2="4" stroke="${color}" stroke-width="1.2"/>
+            <line x1="-5" y1="4" x2="5" y2="4" stroke="${color}" stroke-width="1.2"/>
+          `;
+        case 'filter':
+          return `
+            <polygon points="-7,-6 7,-6 2,0 2,6 -2,6 -2,0" fill="none" stroke="${color}" stroke-width="1.8" stroke-linejoin="round"/>
+          `;
+        case 'lock':
+          return `
+            <rect x="-5" y="-1" width="10" height="8" rx="1.5" fill="none" stroke="${color}" stroke-width="1.8"/>
+            <path d="M-3,-1 L-3,-4 C-3,-5.7 3,-5.7 3,-4 L3,-1" fill="none" stroke="${color}" stroke-width="1.8"/>
+          `;
+        case 'sliders':
+          return `
+            <line x1="-4" y1="-6" x2="-4" y2="6" stroke="${color}" stroke-width="1.5"/>
+            <circle cx="-4" cy="-2" r="2" fill="${color}"/>
+            <line x1="4" y1="-6" x2="4" y2="6" stroke="${color}" stroke-width="1.5"/>
+            <circle cx="4" cy="2" r="2" fill="${color}"/>
+          `;
+        case 'target':
+        default:
+          return `
+            <circle cx="0" cy="0" r="6" fill="none" stroke="${color}" stroke-width="1.8"/>
+            <circle cx="0" cy="0" r="2.2" fill="${color}"/>
+          `;
+      }
+    }
+
+    // =========================================================================
+    // OBSTACLE-AVOIDANCE CONDUIT ROUTER (BESIDE AGENT BODIES & LLM BYPASS)
+    // =========================================================================
+    function getCablePath(c, src, dst) {
+      const key = `${c.from}-${c.to}`;
+      switch (key) {
+        // =====================================================================
+        // TIER 1 & TIER 2 ROUTING (COL 1 & COL 2)
+        // =====================================================================
+        // Ethan -> Ryan: Bypass David (350, 390) by curving out to the left (X=265)
+        case 'ethan-ryan':
+          return `M ${src.x} ${src.y} C 265 310, 265 470, ${dst.x} ${dst.y}`;
+
+        // =====================================================================
+        // MACRO (COL 3) -> TIER 2 & TIER 1 ROUTING (BESIDE AGENT BODIES)
+        // =====================================================================
+        // Arthur -> Victor: Route through clear lane between Sarah & Ethan (350, 180) to avoid Ethan
+        case 'arthur-victor':
+          return `M ${src.x} ${src.y} C 480 200, 390 180, 350 180 S 210 300, ${dst.x} ${dst.y}`;
+
+        // Arthur -> David: Curve smoothly between Ethan and David (480, 310) as user sketched in red
+        case 'arthur-david':
+          return `M ${src.x} ${src.y} C 510 250, 440 340, ${dst.x} ${dst.y}`;
+
+        // Clara -> Victor: Route through clear lane between David & Ryan (350, 465) to avoid David
+        case 'clara-victor':
+          return `M ${src.x} ${src.y} C 480 450, 390 465, 350 465 S 200 360, ${dst.x} ${dst.y}`;
+
+        // Clara -> Ethan: Route through clear lane between Ethan & David (350, 320) to avoid David
+        case 'clara-ethan':
+          return `M ${src.x} ${src.y} C 510 390, 430 320, ${dst.x} ${dst.y}`;
+
+        // =====================================================================
+        // LLM BYPASS CONDUITS (RUNNING SAFELY BESIDE & BELOW CLARA/BEN)
+        // =====================================================================
+        // Omar -> David: Sweeps cleanly BELOW Clara at Y=545-550 into David (matching user's red sketch)
+        case 'omar-david':
+          return `M ${src.x} ${src.y} C 740 545, 610 550, 520 545 S 420 440, ${dst.x} ${dst.y}`;
+
+        // Omar -> Victor: Sweeps cleanly BELOW Clara at Y=565 and between David/Ryan into Victor
+        case 'omar-victor':
+          return `M ${src.x} ${src.y} C 730 555, 610 565, 490 555 S 240 430, ${dst.x} ${dst.y}`;
+
+        // Jack -> David: Routes through clear lane between Arthur & Clara (610, 325) into David
+        case 'jack-david':
+          return `M ${src.x} ${src.y} C 740 330, 670 325, 610 325 S 440 375, ${dst.x} ${dst.y}`;
+
+        // Sam -> David: Routes through clear lane between Arthur & Clara (610, 325) into David
+        case 'sam-david':
+          return `M ${src.x} ${src.y} C 740 180, 660 320, 610 325 S 440 380, ${dst.x} ${dst.y}`;
+
+        // =====================================================================
+        // ORDER FLOW (COL 4) -> MACRO & NEWS (COL 3)
+        // =====================================================================
+        // Leo -> Arthur: Route smoothly above Sam's body at Y=75
+        case 'leo-arthur':
+          return `M ${src.x} ${src.y} C 1000 70, 770 120, ${dst.x} ${dst.y}`;
+
+        // Kai -> Clara: Route through clear lane between Jack & Omar (870, 425) to avoid Jack
+        case 'kai-clara':
+          return `M ${src.x} ${src.y} C 1010 360, 930 425, 870 425 S 710 430, ${dst.x} ${dst.y}`;
+
+        // =====================================================================
+        // ORDER FLOW TRIAD (COL 4) SAME-COLUMN ARCS
+        // =====================================================================
+        // Sam -> Jack: Arc outward to the left (X=815)
+        case 'sam-jack':
+          return `M ${src.x} ${src.y} C 815 180, 815 280, ${dst.x} ${dst.y}`;
+
+        // Jack -> Omar: Arc outward to the left (X=815)
+        case 'jack-omar':
+          return `M ${src.x} ${src.y} C 815 380, 815 470, ${dst.x} ${dst.y}`;
+
+        // =====================================================================
+        // PRICE ACTION & SPECIALISTS (COL 5 & COL 6) BESIDE NODE BODIES
+        // =====================================================================
+        // Ryan -> Victor: Return feedback loop curve
+        case 'ryan-victor':
+          return `M ${src.x} ${src.y} C 210 500, 160 420, ${dst.x} ${dst.y}`;
+
+        // Max -> Sam: Arc smoothly OVER Leo at Y=70 to avoid Leo's body
+        case 'max-sam':
+          return `M ${src.x} ${src.y} C 1260 70, 990 70, ${dst.x} ${dst.y}`;
+
+        // Marcus -> Omar: Arc smoothly UNDER Nina at Y=585 to avoid Nina's body
+        case 'marcus-omar':
+          return `M ${src.x} ${src.y} C 1260 585, 990 585, ${dst.x} ${dst.y}`;
+
+        // Marcus -> Kai: Route smoothly between Nina and Kai
+        case 'marcus-kai':
+          return `M ${src.x} ${src.y} C 1280 490, 1210 380, ${dst.x} ${dst.y}`;
+
+        // Marcus -> Nina: Clear horizontal conduit
+        case 'marcus-nina':
+          return `M ${src.x} ${src.y} C 1270 520, 1210 520, ${dst.x} ${dst.y}`;
+
+        // Max -> Elena: Arc outward to the right around Elena's top
+        case 'max-elena':
+          return `M ${src.x} ${src.y} C 1445 190, 1445 270, ${dst.x} ${dst.y}`;
+
+        // Max -> Marcus: Arc outward to the outer perimeter
+        case 'max-marcus':
+          return `M ${src.x} ${src.y} C 1465 220, 1465 430, ${dst.x} ${dst.y}`;
+
+        // Max -> Jack: Route through clear lane between Leo & Kai (1130, 230) to avoid Kai
+        case 'max-jack':
+          return `M ${src.x} ${src.y} C 1260 170, 1180 230, 1130 230 S 970 300, ${dst.x} ${dst.y}`;
+
+        // Elena -> Jack: Route through clear lane below Kai (1130, 415) to avoid Kai
+        case 'elena-jack':
+          return `M ${src.x} ${src.y} C 1270 385, 1190 415, 1130 415 S 980 365, ${dst.x} ${dst.y}`;
+
+        // Nina -> Leo: Arc outward to the right (X=1215) around Kai to avoid Kai's body
+        case 'nina-leo':
+          return `M ${src.x} ${src.y} C 1215 440, 1215 210, ${dst.x} ${dst.y}`;
+
+        // Marcus -> Max: Arc outward to the outer right perimeter (X=1475) around Elena
+        case 'marcus-max':
+          return `M ${src.x} ${src.y} C 1475 440, 1475 210, ${dst.x} ${dst.y}`;
+
+        // Nina -> Kai: Arc outward to the right (X=1195)
+        case 'nina-kai':
+          return `M ${src.x} ${src.y} C 1195 470, 1195 380, ${dst.x} ${dst.y}`;
+
+        // Leo -> Elena: Smooth diagonal through clear lane (1255, 230)
+        case 'leo-elena':
+          return `M ${src.x} ${src.y} C 1200 160, 1290 270, ${dst.x} ${dst.y}`;
+
+        // Kai -> Sam: Smooth diagonal through clear lane (1000, 230)
+        case 'kai-sam':
+          return `M ${src.x} ${src.y} C 1060 290, 970 200, ${dst.x} ${dst.y}`;
+
+        // Default: Smooth cubic bezier for adjacent unobstructed nodes
+        default: {
+          const dx = dst.x - src.x;
+          const cx1 = src.x + dx * 0.42;
+          const cy1 = src.y;
+          const cx2 = dst.x - dx * 0.42;
+          const cy2 = dst.y;
+          return `M ${src.x} ${src.y} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${dst.x} ${dst.y}`;
+        }
+      }
+    }
+
+    // =========================================================================
+    // RENDER OPTIC FIBER CABLES (CUBIC BEZIER SMOOTH CONDUITS & ARCS)
+    // =========================================================================
+    function renderCables() {
+      const layer = document.getElementById('cablesLayer');
+      layer.innerHTML = '';
+
+      CABLES.forEach((c, idx) => {
+        const src = nodeMap[c.from];
+        const dst = nodeMap[c.to];
+        if (!src || !dst) return;
+
+        const pathData = getCablePath(c, src, dst);
+
+        // Background subtle glow conduit
+        const glowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        glowPath.setAttribute('d', pathData);
+        glowPath.setAttribute('class', 'fiber-cable' + (c.isBypass ? ' bypass-cable' : ''));
+        glowPath.setAttribute('stroke', c.color);
+        glowPath.setAttribute('stroke-width', c.isBypass ? '2.4' : '2.0');
+        glowPath.setAttribute('stroke-opacity', c.isBypass ? '0.50' : '0.38');
+        glowPath.setAttribute('stroke-dasharray', c.isBypass ? '6 3' : '5 4');
+        glowPath.id = `cable-${idx}`;
+        layer.appendChild(glowPath);
+
+        // Core bright line
+        const corePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        corePath.setAttribute('d', pathData);
+        corePath.setAttribute('stroke', c.color);
+        corePath.setAttribute('stroke-width', c.isBypass ? '1.5' : '1.2');
+        corePath.setAttribute('stroke-opacity', c.isBypass ? '0.88' : '0.72');
+        corePath.setAttribute('fill', 'none');
+        layer.appendChild(corePath);
+
+        c.pathElement = glowPath;
+      });
+    }
+
+    // =========================================================================
+    // RENDER 16 AGENT HUBS (ZERO BOUNCING, GLITCH-FREE SOLID HIT-AREA)
+    // =========================================================================
+    function renderNodes() {
+      const layer = document.getElementById('nodesLayer');
+      layer.innerHTML = '';
+
+      NODES.forEach(n => {
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.id = `node-${n.id}`;
+        g.setAttribute('class', 'node-group');
+        g.setAttribute('transform', `translate(${n.x}, ${n.y})`);
+        g.onclick = () => selectNode(n.id);
+
+        const r = n.r;
+        const color = n.color;
+
+        let innerSvg = '';
+
+        if (n.id === 'victor') {
+          // #01 VICTOR: Master Hub (Radius 68)
+          innerSvg = `
+            <circle cx="0" cy="0" r="${r + 20}" fill="transparent" class="hit-area"/>
+
+            <!-- Outer Holographic Spinning Rings -->
+            <circle cx="0" cy="0" r="${r + 16}" stroke="${color}" stroke-width="1.5" stroke-dasharray="14 10 4 10" fill="none" opacity="0.45" class="spin-ccw"/>
+            <circle cx="0" cy="0" r="${r + 8}" stroke="${color}" stroke-width="2" stroke-dasharray="24 14 8 14" fill="none" opacity="0.65" class="spin-cw"/>
+
+            <!-- Pure Dark Obsidian Center (MAXIMUM CONTRAST) -->
+            <circle cx="0" cy="0" r="${r}" fill="url(#gradMaster)" stroke="${color}" stroke-width="2.8" class="core-circle glow-pulse"/>
+
+            <!-- Top Icon -->
+            <g transform="translate(0, -30) scale(1.3)">
+              ${getIconSvg(n.icon, color)}
+            </g>
+
+            <!-- Agent Number & Name (CRISP PURE WHITE) -->
+            <text x="0" y="3" text-anchor="middle" font-family="'Orbitron', monospace" font-size="14" font-weight="900" fill="#ffffff" letter-spacing="0.6" class="node-name">
+              #${n.num} ${n.name}
+            </text>
+            
+            <!-- High-Contrast Domain Pill Badge (SEO) -->
+            <g transform="translate(0, 13)">
+              <rect x="-42" y="-1" width="84" height="15" rx="3" fill="#030712" stroke="${color}" stroke-width="1.3"/>
+              <text x="0" y="10.5" text-anchor="middle" font-family="'Orbitron', monospace" font-size="9.5" font-weight="900" fill="${color}" letter-spacing="1.2">
+                ${n.domainLabel}
+              </text>
+            </g>
+
+            <!-- Subtext / Consensus -->
+            <text x="0" y="38" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="7.5" font-weight="700" fill="#38bdf8" letter-spacing="0.3">
+              ${n.sub}
+            </text>
+
+            <!-- Satellite Pips -->
+            <circle cx="${r}" cy="0" r="4" fill="#ffffff" stroke="${color}" stroke-width="2"/>
+            <circle cx="${r - 12}" cy="-36" r="3.2" fill="#ffffff" stroke="${color}" stroke-width="2"/>
+            <circle cx="${r - 12}" cy="36" r="3.2" fill="#ffffff" stroke="${color}" stroke-width="2"/>
+
+            <!-- Bottom Pill -->
+            <g transform="translate(0, ${r + 24})">
+              <rect x="-76" y="-8" width="152" height="16" rx="8" fill="#030712" stroke="${color}" stroke-width="1.1" opacity="0.95"/>
+              <circle cx="-64" cy="0" r="2.5" fill="${color}" class="animate-ping"/>
+              <circle cx="-64" cy="0" r="2.5" fill="${color}"/>
+              <text x="-54" y="3.2" font-family="'JetBrains Mono', monospace" font-size="7.2" font-weight="bold" fill="#ffffff">
+                ${n.pill}
+              </text>
+            </g>
+          `;
+        } else if (n.r >= 48) {
+          // Mid Gateways: #02 ARTHUR, #12 CLARA, #16 RYAN (Radius 48 - 50)
+          innerSvg = `
+            <circle cx="0" cy="0" r="${r + 14}" fill="transparent" class="hit-area"/>
+
+            <circle cx="0" cy="0" r="${r + 12}" stroke="${color}" stroke-width="1.4" stroke-dasharray="16 8 4 8" fill="none" opacity="0.45" class="spin-ccw"/>
+            <circle cx="0" cy="0" r="${r + 5}" stroke="${color}" stroke-width="1.8" stroke-dasharray="20 10" fill="none" opacity="0.65" class="spin-cw"/>
+
+            <!-- Pure Dark Obsidian Center -->
+            <circle cx="0" cy="0" r="${r}" fill="url(#gradNode)" stroke="${color}" stroke-width="2.3" class="core-circle glow-pulse"/>
+
+            <!-- Icon -->
+            <g transform="translate(0, -21) scale(1.15)">
+              ${getIconSvg(n.icon, color)}
+            </g>
+
+            <!-- Agent Name & Number (CRISP PURE WHITE) -->
+            <text x="0" y="3.5" text-anchor="middle" font-family="'Orbitron', monospace" font-size="11.5" font-weight="900" fill="#ffffff" letter-spacing="0.5" class="node-name">
+              #${n.num} ${n.name}
+            </text>
+
+            <!-- Domain Tag Badge -->
+            <g transform="translate(0, 11)">
+              <rect x="-62" y="-1" width="124" height="13" rx="3" fill="#030712" stroke="${color}" stroke-width="1.1"/>
+              <text x="0" y="8.5" text-anchor="middle" font-family="'Chakra Petch', sans-serif" font-size="6.3" font-weight="800" fill="${color}" letter-spacing="0.4">
+                ${n.domainLabel}
+              </text>
+            </g>
+
+            <!-- Metrics -->
+            <text x="0" y="32" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="7.2" font-weight="700" fill="#38bdf8">
+              ${n.sub}
+            </text>
+
+            <!-- Pill Below -->
+            <g transform="translate(0, ${r + 18})">
+              <rect x="-55" y="-7.5" width="110" height="15" rx="7.5" fill="#030712" stroke="${color}" stroke-width="1" opacity="0.95"/>
+              <text x="0" y="3" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="7" font-weight="bold" fill="#ffffff">
+                ${n.pill}
+              </text>
+            </g>
+          `;
+        } else {
+          // Specialists (Radius 42 - 44)
+          innerSvg = `
+            <circle cx="0" cy="0" r="${r + 12}" fill="transparent" class="hit-area"/>
+
+            <circle cx="0" cy="0" r="${r + 9}" stroke="${color}" stroke-width="1.2" stroke-dasharray="12 6" fill="none" opacity="0.45" class="spin-ccw"/>
+            <circle cx="0" cy="0" r="${r + 4}" stroke="${color}" stroke-width="1.5" stroke-dasharray="14 8" fill="none" opacity="0.60" class="spin-cw"/>
+
+            <!-- Pure Dark Obsidian Center -->
+            <circle cx="0" cy="0" r="${r}" fill="url(#gradNode)" stroke="${color}" stroke-width="2.0" class="core-circle"/>
+
+            <!-- Icon -->
+            <g transform="translate(0, -18) scale(1.05)">
+              ${getIconSvg(n.icon, color)}
+            </g>
+
+            <!-- Agent Name & Number (CRISP PURE WHITE) -->
+            <text x="0" y="3.5" text-anchor="middle" font-family="'Orbitron', monospace" font-size="10.2" font-weight="800" fill="#ffffff" letter-spacing="0.4" class="node-name">
+              #${n.num} ${n.name}
+            </text>
+
+            <!-- Domain Tag Badge -->
+            <g transform="translate(0, 10)">
+              <rect x="-56" y="-1" width="112" height="12" rx="2.5" fill="#030712" stroke="${color}" stroke-width="1"/>
+              <text x="0" y="8" text-anchor="middle" font-family="'Chakra Petch', sans-serif" font-size="6.0" font-weight="800" fill="${color}" letter-spacing="0.3">
+                ${n.domainLabel}
+              </text>
+            </g>
+
+            <!-- Subtext Stat -->
+            <text x="0" y="28" text-anchor="middle" font-family="'JetBrains Mono', monospace" font-size="6.5" font-weight="700" fill="#38bdf8">
+              ${n.sub}
+            </text>
+          `;
+        }
+
+        g.innerHTML = innerSvg;
+        layer.appendChild(g);
+      });
+    }
+
+    // =========================================================================
+    // ANIMATED TRAVELING PHOTONS (LIVE STREAMING DATA PACKETS)
+    // =========================================================================
+    let photons = [];
+
+    function initPhotons() {
+      photons = [];
+      CABLES.forEach((c, idx) => {
+        const count = (c.to === 'victor' || c.to === 'ryan') ? 4 : 2;
+        for (let i = 0; i < count; i++) {
+          photons.push({
+            cableIdx: idx,
+            progress: (i / count) + Math.random() * 0.2,
+            speed: (0.0035 / (c.speed || 2.0)) * (0.8 + Math.random() * 0.4),
+            size: (c.to === 'victor' || c.to === 'ryan') ? 3.5 : 2.5,
+            color: c.color
+          });
+        }
+      });
+    }
+
+    function animatePhotons() {
+      const layer = document.getElementById('photonsLayer');
+      layer.innerHTML = '';
+
+      photons.forEach(p => {
+        p.progress += p.speed;
+        if (p.progress > 1) p.progress -= 1;
+
+        const c = CABLES[p.cableIdx];
+        if (!c || !c.pathElement) return;
+
+        try {
+          const pathLen = c.pathElement.getTotalLength();
+          const pt = c.pathElement.getPointAtLength(p.progress * pathLen);
+
+          const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          dot.setAttribute('cx', pt.x);
+          dot.setAttribute('cy', pt.y);
+          dot.setAttribute('r', p.size);
+          dot.setAttribute('fill', '#ffffff');
+          dot.setAttribute('stroke', p.color);
+          dot.setAttribute('stroke-width', '1.5');
+          dot.setAttribute('filter', 'url(#glowCyan)');
+          layer.appendChild(dot);
+        } catch(e) {}
+      });
+
+      requestAnimationFrame(animatePhotons);
+    }
+
+    // Laser Surge on Button Click
+    function triggerLaserSurge() {
+      photons.forEach(p => p.speed *= 3.5);
+      setTimeout(() => {
+        photons.forEach(p => p.speed /= 3.5);
+      }, 1500);
+
+      document.querySelectorAll('.fiber-cable').forEach(c => {
+        c.style.strokeOpacity = '1';
+        c.style.strokeWidth = '3.5px';
+        setTimeout(() => {
+          c.style.strokeOpacity = '';
+          c.style.strokeWidth = '';
+        }, 1500);
+      });
+    }
+
+    // =========================================================================
+    // INTERACTION & SELECTION (GLITCH-FREE, ROCK-STEADY ACTIVATION)
+    // =========================================================================
+    let activeNodeId = null;
+
+    function selectNode(id) {
+      activeNodeId = id;
+      const n = nodeMap[id];
+      if (!n) return;
+
+      // Update Bottom Dock Info
+      document.getElementById('dockAgentIcon').innerText = '#' + n.num;
+      document.getElementById('dockAgentIcon').style.borderColor = n.color;
+      document.getElementById('dockAgentIcon').style.color = n.color;
+      
+      document.getElementById('dockAgentName').innerText = `#${n.num} ${n.name}`;
+      document.getElementById('dockDomainBadge').innerText = n.domainLabel;
+      document.getElementById('dockDomainBadge').style.borderColor = n.color;
+      document.getElementById('dockDomainBadge').style.color = n.color;
+      document.getElementById('dockDomainBadge').style.background = n.color + '22';
+
+      document.getElementById('dockTierBadge').innerText = n.tier;
+
+      document.getElementById('dockAgentWork').innerHTML = `${n.work} &bull; <span class="text-cyan-300">${n.sub}</span>`;
+      document.getElementById('dockAlgoDesc').innerText = n.algoDesc;
+
+      document.getElementById('dockInboundCount').innerText = n.inbound.length > 0 ? n.inbound.map(x => '#' + nodeMap[x].num + ' ' + nodeMap[x].name).join(', ') : 'None (Primary Source)';
+      document.getElementById('dockOutboundCount').innerText = n.outbound.length > 0 ? n.outbound.map(x => '#' + nodeMap[x].num + ' ' + nodeMap[x].name).join(', ') : 'None (Terminal)';
+
+      document.getElementById('dockTelemetryJson').innerText = JSON.stringify(n.telemetry, null, 2);
+
+      // Slide Up Dock
+      const dock = document.getElementById('inspectorBottomDock');
+      dock.classList.remove('translate-y-full');
+      document.getElementById('openDockBar').classList.add('hidden');
+
+      // Highlight active node in SVG & Manage Selection Ring
+      document.querySelectorAll('.node-group').forEach(el => el.style.opacity = '0.35');
+      
+      const prevRing = document.getElementById('activeSelectionRing');
+      if (prevRing) prevRing.remove();
+
+      const activeEl = document.getElementById(`node-${id}`);
+      if (activeEl) {
+        activeEl.style.opacity = '1';
+        const ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        ring.id = 'activeSelectionRing';
+        ring.setAttribute('cx', '0');
+        ring.setAttribute('cy', '0');
+        ring.setAttribute('r', (n.r + 12).toString());
+        ring.setAttribute('stroke', '#ffffff');
+        ring.setAttribute('stroke-width', '2.2');
+        ring.setAttribute('stroke-dasharray', '8 6');
+        ring.setAttribute('fill', 'none');
+        ring.setAttribute('class', 'spin-cw');
+        ring.setAttribute('opacity', '0.95');
+        activeEl.appendChild(ring);
+      }
+
+      // Highlight connected cables
+      document.querySelectorAll('.fiber-cable').forEach(c => c.style.strokeOpacity = '0.1');
+      CABLES.forEach((c, idx) => {
+        if (c.from === id || c.to === id) {
+          const el = document.getElementById(`cable-${idx}`);
+          if (el) {
+            el.style.strokeOpacity = '1';
+            el.style.strokeWidth = '3px';
+          }
+          const otherId = c.from === id ? c.to : c.from;
+          const otherEl = document.getElementById(`node-${otherId}`);
+          if (otherEl) otherEl.style.opacity = '0.9';
+        }
+      });
+    }
+
+    function closeInspector() {
+      const dock = document.getElementById('inspectorBottomDock');
+      dock.classList.add('translate-y-full');
+      document.getElementById('openDockBar').classList.remove('hidden');
+
+      // Remove Selection Ring
+      const prevRing = document.getElementById('activeSelectionRing');
+      if (prevRing) prevRing.remove();
+
+      // Reset opacities
+      document.querySelectorAll('.node-group').forEach(el => el.style.opacity = '1');
+      document.querySelectorAll('.fiber-cable').forEach(c => {
+        c.style.strokeOpacity = '';
+        c.style.strokeWidth = '';
+      });
+      activeNodeId = null;
+    }
+
+    // Filter by Domain
+    function filterDomain(domain) {
+      document.querySelectorAll('.domain-btn').forEach(b => {
+        b.classList.remove('ring-2', 'ring-cyan-400', 'bg-cyan-500/30');
+      });
+      const activeBtn = document.getElementById(`filter-${domain}`);
+      if (activeBtn) activeBtn.classList.add('ring-2', 'ring-cyan-400');
+
+      if (domain === 'ALL') {
+        document.querySelectorAll('.node-group').forEach(n => n.style.opacity = '1');
+        document.querySelectorAll('.fiber-cable').forEach(c => c.style.strokeOpacity = '');
+        return;
+      }
+
+      NODES.forEach(n => {
+        const el = document.getElementById(`node-${n.id}`);
+        if (!el) return;
+        if (n.domain === domain) {
+          el.style.opacity = '1';
+        } else {
+          el.style.opacity = '0.2';
+        }
+      });
+    }
+
+    // Scenarios Simulation
+    function simulateScenario(type) {
+      triggerLaserSurge();
+      if (type === 'pipeline') {
+        // Step 1: Max & Leo spot False Box Breakout Trap & Killzone Sweep
+        selectNode('max');
+        setTimeout(() => selectNode('leo'), 1200);
+        setTimeout(() => selectNode('sam'), 2400);    // Step 2: Sam confirms 2.9x L2 Wall
+        setTimeout(() => selectNode('jack'), 3600);   // Step 3: Jack confirms VSA Stopping Vol
+        setTimeout(() => selectNode('arthur'), 4800); // Step 4: Arthur confirms Chop 31.4 < 38.5
+        setTimeout(() => selectNode('ethan'), 6000);  // Step 5: Ethan calculates 0.85x ATR SL
+        setTimeout(() => selectNode('sarah'), 7200);  // Step 6: Sarah confirms 0.0 Tilt & 100 Discipline
+        setTimeout(() => selectNode('victor'), 8400); // Step 7: Victor approves 15.8 Consensus!
+        setTimeout(() => selectNode('ryan'), 9600);   // Step 8: Ryan executes & engages 40R Trail!
+      } else if (type === 'bypass') {
+        // ⚡ LLM News Bypass Simulation: Direct Flow around Clara/Ben
+        selectNode('omar');
+        setTimeout(() => {
+          selectNode('jack');
+          // Dim Clara to illustrate LLM bypass
+          const claraEl = document.getElementById('node-clara');
+          if (claraEl) claraEl.style.opacity = '0.35';
+        }, 1400);
+        setTimeout(() => selectNode('arthur'), 2800);
+        setTimeout(() => selectNode('david'), 4200);
+        setTimeout(() => selectNode('victor'), 5600);
+        setTimeout(() => selectNode('ryan'), 7000);
+      } else if (type === 'fomc') {
+        selectNode('clara');
+      } else if (type === 'runner') {
+        selectNode('ryan');
+      }
+    }
+
+    // =========================================================================
+    // MODALS: TRADES LEDGER & ROUTING MATRIX
+    // =========================================================================
+    function openDrawer(id) {
+      document.getElementById(id).classList.remove('hidden');
+      if (id === 'tradesDrawer') populateTradesTable();
+      if (id === 'matrixDrawer') populateRoutingMatrix();
+    }
+
+    function closeDrawer(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+
+    function populateTradesTable() {
+      const tbody = document.getElementById('tradesTableBody');
+      if (tbody.children.length > 0) return;
+
+      TRADES_DATA.forEach(t => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-800/40 transition';
+        const pnlClass = t.pnl >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold';
+        const dirClass = t.d === 'LONG' ? 'text-cyan-300' : 'text-amber-300';
+        tr.innerHTML = `
+          <td class="p-2 text-slate-400">#${t.id}</td>
+          <td class="p-2 text-slate-300">${t.t}</td>
+          <td class="p-2 ${dirClass} font-bold">${t.d}</td>
+          <td class="p-2 text-slate-200 font-mono">${t.pb}</td>
+          <td class="p-2 text-cyan-300 font-hud">${t.ini}</td>
+          <td class="p-2 ${pnlClass}">${t.r > 0 ? '+' : ''}${t.r.toFixed(2)}R</td>
+          <td class="p-2 ${pnlClass}">${t.pnl >= 0 ? '+' : ''}$${t.pnl.toFixed(2)}</td>
+          <td class="p-2 text-slate-400 text-[10px]">${t.ex}</td>
+          <td class="p-2 text-emerald-300 font-bold">$${t.eq.toFixed(2)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function populateRoutingMatrix() {
+      const tbody = document.getElementById('routingMatrixBody');
+      if (tbody.children.length > 0) return;
+
+      CABLES.forEach(c => {
+        const src = nodeMap[c.from];
+        const dst = nodeMap[c.to];
+        if (!src || !dst) return;
+
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-800/40 transition';
+        tr.innerHTML = `
+          <td class="p-2.5 font-hud font-bold" style="color: ${src.color}">#${src.num} ${src.name}</td>
+          <td class="p-2.5 text-slate-300">${src.work}</td>
+          <td class="p-2.5 text-cyan-300 font-mono">${c.label || 'Optic Conduits Sharing Telemetry'}</td>
+          <td class="p-2.5 font-hud font-bold" style="color: ${dst.color}">#${dst.num} ${dst.name}</td>
+          <td class="p-2.5 text-slate-300">${dst.work}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // =========================================================================
+    // INITIALIZATION
+    // =========================================================================
+    window.addEventListener('DOMContentLoaded', () => {
+      renderCables();
+      renderNodes();
+      initPhotons();
+      animatePhotons();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+[Unit]
+Description=Delta Exchange India XAUTUSD 50x Live Bot (Port 5055)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/delta_gold_bot
+ExecStart=/usr/bin/python3 /var/www/delta_gold_bot/hostinger_delta_gold_live.py
+Restart=always
+RestartSec=5
+Environment=PORT=5055
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,93 @@
+# Syndicate Alpha — 16-Agent Gold Quantitative Trading Desk Configuration
+# Asset: CME COMEX Gold Futures (GC front-month / MGC micro gold)
+
+desk:
+  name: "Syndicate Alpha"
+  symbol: "GC"               # CME COMEX Gold Futures (GC.v.0) / Delta Exchange XAUUSD
+  tick_size: 0.10             # $0.10 price increment
+  tick_value_gc: 10.00        # $10.00 per 0.10 pt on standard contract
+  tick_value_mgc: 1.00        # $1.00 per 0.10 pt on micro contract
+  exchange: "DELTA_EXCHANGE"
+  brokerage_fee_pct: 0.0001   # Delta Exchange 0.01% (1 bps) fee per order leg (0.02% round-turn)
+  commission_per_contract: 0.07 # Legacy fallback
+
+# Pod 4: Risk, Veteran & Math (SARAH, DAVID, ETHAN)
+risk:
+  account_equity: 100.00         # $100 Starting Account Equity
+  risk_usd_per_trade: 5.00       # Fixed $5.00 Risk per Trade
+  max_risk_pct_per_trade: 0.0500 # 5.0% initial risk ($5 on $100)
+  max_daily_drawdown_pct: 0.1250 # -$12.50 daily circuit breaker (2.5 full stops -> hard lockout)
+  max_trades_per_day: 3
+  consecutive_losses_cooldown_mins: 45
+  consecutive_loss_dampener: true # 50% risk ($2.50) after 2 consecutive losses
+  min_net_risk_reward: 2.50      # Minimum 1:2.5 R:R target
+  david_min_room_to_wall_atr: 2.0 # Opposing 4H wall must be >= 2.0x risk away
+
+# Pod 1: Macro & Regime (ARTHUR & CLARA)
+macro:
+  ema_fast: 50
+  ema_slow: 200
+  adx_period: 14
+  adx_trend_threshold: 25.0
+  chop_period: 14
+  chop_high_threshold: 58.0   # CHOP > 58.0 -> Disable breakouts, enable range scalps
+  chop_low_threshold: 38.2    # CHOP < 38.2 -> Strong trend expansion
+  overlap_lookback_bars: 6    # 1H candle overlap ratio
+  overlap_range_threshold: 0.70
+  news_lockout_mins: 15       # Blackout minutes before/after Red Folder CPI/NFP
+
+# Pod 2: Multi-Strategy Setup Hunters
+setups:
+  min_confluence_score: 0.75  # Minimum confidence required to propose a trade
+  dna_initiators: ["8:ELENA", "7:DEREK", "2:MAYA", "4:NINA", "10:OMAR", "11:LIAM"]
+  marcus_breakout:
+    vol_expansion_multiplier: 1.8
+    value_area_pct: 0.70
+  nina_smc:
+    fvg_min_ticks: 3
+    eqh_eql_tolerance_ticks: 2
+  max_trap:
+    trap_reversal_bars: 3
+  leo_ict:
+    asia_killzone: ["18:00", "23:00"]    # 05:00 AM to 10:30 AM IST (Tokyo & Shanghai)
+    silver_bullet_asia: ["19:30", "20:30"] # 06:00 AM to 07:00 AM IST (Shanghai open)
+    london_killzone: ["02:00", "07:00"] # EST (12:30 to 17:30 IST)
+    ny_killzone: ["08:00", "11:00"]     # EST (18:30 to 21:30 IST)
+    silver_bullet_ny: ["10:00", "11:00"]
+    midday_skip_window: ["12:00", "17:00"] # 22:30 to 03:30 IST (Low-liquidity chop skip)
+  kai_fib:
+    golden_pocket_low: 0.618
+    golden_pocket_high: 0.786
+    ote_level: 0.705
+  elena_priceaction:
+    min_wick_ratio: 1.6
+    reversal_atr_buffer: 1.45
+    target_runner_usd: 25.00
+    mss_confirmation_tf: "5m"
+
+# Pod 3: Level 2 DOM & Order Flow (SAM, OMAR, JACK)
+orderflow:
+  sam_l2:
+    min_imbalance_ratio: 2.5  # Bids/Asks must be >= 2.5:1 for long confirmation
+    iceberg_min_contracts: 120
+    max_acceptable_spread_ticks: 3
+  omar_cvd:
+    divergence_lookback_bars: 10
+  jack_vsa:
+    volume_z_score_threshold: 2.0
+
+# Pod 5: Master Consensus & Lifecycle (VICTOR & RYAN)
+execution:
+  consensus_threshold_pct: 75.0 # Calibrated consensus required to fire
+  breakeven_trigger_r: 1.80    # Move SL to BE only after +1.8R (avoids retest knockout)
+  be_lock_r: 0.38              # Lock +0.38R on BE trigger to cover fees + small gain
+  stall_trigger_r: 1.05        # If trade stalls at +1.05R for 6 bars -> stall lock
+  stall_bars: 6
+  stall_lock_r: 0.28           # Bank +0.28R on stall to scratch safely
+  partial_tp1_pct: 0.50        # Bank 50% profit at TP1 (+1.80R / $12.50)
+  runner_moonbag_pct: 0.50     # Let remaining 50% ride for $33+ megatrend
+  trail_trigger_r: 2.50        # Activate dynamic trail once +2.5R reached
+  trail_dist_r: 0.85           # 0.85R trailing distance behind peak price
+  max_hold_mins: 270           # 4.5h max hold matching Gold median expansion cycle
+  trailing_stop_type: "15m_swing"
+  emergency_exit_on_iceberg: true

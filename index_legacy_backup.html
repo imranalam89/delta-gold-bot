@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Syndicate Alpha — 16-Agent Quantitative Gold Trading Desk</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      background-color: #090d16;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+    .glass-card {
+      background: rgba(17, 24, 39, 0.86);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(51, 65, 85, 0.7);
+    }
+    .agent-card {
+      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      cursor: pointer;
+      position: relative;
+    }
+    .agent-card:hover {
+      transform: translateY(-2px);
+      border-color: #38bdf8;
+      box-shadow: 0 8px 25px -5px rgba(56, 189, 248, 0.22);
+    }
+    .agent-selected {
+      border-color: #f59e0b !important;
+      box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.45), 0 10px 30px -5px rgba(245, 158, 11, 0.3) !important;
+      background: rgba(30, 41, 59, 0.95) !important;
+    }
+    .agent-source {
+      border-color: #38bdf8 !important;
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.4) !important;
+    }
+    .agent-target {
+      border-color: #10b981 !important;
+      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.4) !important;
+    }
+    .agent-dimmed {
+      opacity: 0.35;
+      filter: grayscale(35%);
+    }
+    .agent-active-pulse {
+      animation: pulseGlow 1.5s infinite;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.5); }
+      50% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); }
+    }
+    .flow-line {
+      stroke-dasharray: 6 4;
+      animation: dashFlow 1.2s linear infinite;
+    }
+    @keyframes dashFlow {
+      to { stroke-dashoffset: -20; }
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+  </style>
+</head>
+<body class="min-h-screen text-slate-100 pb-12">
+
+  <!-- TOP COMMAND BAR -->
+  <header class="sticky top-0 z-40 glass-card border-b border-slate-800 px-6 py-3.5">
+    <div class="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/50 flex items-center justify-center text-amber-400 font-bold text-lg shadow-inner">
+          Au
+        </div>
+        <div>
+          <div class="flex items-center gap-2.5">
+            <h1 class="font-bold text-lg tracking-tight text-white">SYNDICATE ALPHA — 16-AGENT GOLD TRADING DESK</h1>
+            <span class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+              BLACKBOARD ONLINE
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">
+            COMEX Gold Futures (<code class="text-amber-300">GC / MGC</code>) &bull; Databento <code class="text-sky-300">MBP-10</code> L2 Depth &bull; Tradovate WebSocket Execution &bull; Zero-LLM Deterministic Runtime
+          </p>
+        </div>
+      </div>
+
+      <!-- Market Ticker & Controls -->
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="bg-slate-900/90 border border-slate-700/80 rounded-lg px-3.5 py-1.5 flex items-center gap-4 text-xs">
+          <div>
+            <span class="text-slate-400 block">COMEX GC1!</span>
+            <span id="livePrice" class="font-mono font-bold text-sm text-amber-400">$2,742.60</span>
+          </div>
+          <div class="h-6 w-px bg-slate-800"></div>
+          <div>
+            <span class="text-slate-400 block">REGIME (ARTHUR)</span>
+            <span id="headerRegime" class="font-semibold text-emerald-400">BULLISH TREND (CHOP 31.4)</span>
+          </div>
+          <div class="h-6 w-px bg-slate-800"></div>
+          <div>
+            <span class="text-slate-400 block">L2 DOM (SAM)</span>
+            <span id="headerDom" class="font-mono text-sky-400">2.9x BID IMBALANCE</span>
+          </div>
+          <div class="h-6 w-px bg-slate-800"></div>
+          <div>
+            <span class="text-slate-400 block">NEWS (CLARA)</span>
+            <span id="headerNews" class="font-semibold text-emerald-400">CLEAR (NO RED FOLDER)</span>
+          </div>
+        </div>
+
+        <!-- View Switcher -->
+        <div class="flex bg-slate-900 border border-slate-700 rounded-lg p-1 text-xs font-medium">
+          <button onclick="switchTab('network')" id="tabBtn-network" class="px-3 py-1.5 rounded-md bg-amber-500 text-slate-950 font-semibold transition">
+            5-Stage Relay Architecture
+          </button>
+          <button onclick="switchTab('matrix')" id="tabBtn-matrix" class="px-3 py-1.5 rounded-md text-slate-300 hover:text-white transition">
+            Data-Sharing Matrix (All Flows)
+          </button>
+          <button onclick="switchTab('lifecycle')" id="tabBtn-lifecycle" class="px-3 py-1.5 rounded-md text-slate-300 hover:text-white transition">
+            In-Trade Lifecycle &amp; Chop Logic
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- SCENARIO & SIMULATION CONTROL BAR -->
+  <section class="max-w-[1600px] mx-auto px-6 pt-4">
+    <div class="glass-card rounded-xl p-4 flex flex-wrap items-center justify-between gap-4 border border-slate-800">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 mr-1">Market Scenarios:</span>
+        <button onclick="loadScenario('ny_sweep')" id="scen-ny_sweep" class="scen-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 transition">
+          1. NY Open Liquidity Sweep (LONG GO)
+        </button>
+        <button onclick="loadScenario('htf_chop')" id="scen-htf_chop" class="scen-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-300 border border-slate-700 hover:border-slate-500 transition">
+          2. 1H Overlapping Chop → 1M Internal Scalp
+        </button>
+        <button onclick="loadScenario('cpi_veto')" id="scen-cpi_veto" class="scen-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-300 border border-slate-700 hover:border-slate-500 transition">
+          3. Red-Folder CPI Release (CLARA VETO)
+        </button>
+        <button onclick="loadScenario('bull_trap')" id="scen-bull_trap" class="scen-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-300 border border-slate-700 hover:border-slate-500 transition">
+          4. Session High Bull Trap (MAX + SAM SHORT)
+        </button>
+      </div>
+
+      <div class="flex items-center gap-2.5">
+        <button onclick="runRelayAnimation()" id="btnAnimateRelay" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center gap-1.5 shadow transition">
+          <span>&#9654;</span> Animate Step-by-Step Data Relay
+        </button>
+        <button onclick="clearSelection()" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+          Reset Highlight
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- MAIN CONTENT CONTAINER -->
+  <main class="max-w-[1600px] mx-auto px-6 pt-5">
+
+    <!-- TAB 1: 5-STAGE RELAY ARCHITECTURE & AGENT INSPECTOR -->
+    <div id="tab-network" class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+
+      <!-- LEFT 8 COLS: THE 5-STAGE PEER-TO-PEER PIPELINE -->
+      <div class="xl:col-span-8 space-y-5 relative" id="pipelineContainer">
+
+        <!-- Legend Banner -->
+        <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-900/80 border border-slate-800 rounded-lg px-4 py-2.5 text-xs">
+          <div class="flex items-center gap-2">
+            <span class="text-slate-300 font-medium">Interactive Relay Map:</span>
+            <span class="text-slate-400">Click any trader card to inspect who sends data to them and who receives their output.</span>
+          </div>
+          <div class="flex items-center gap-4">
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded border-2 border-amber-400 inline-block"></span> Selected Agent</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded border-2 border-sky-400 inline-block"></span> Sends Data IN (Upstream)</span>
+            <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded border-2 border-emerald-400 inline-block"></span> Receives Data OUT (Downstream)</span>
+          </div>
+        </div>
+
+        <!-- STAGE 1: MACRO & NEWS GATE -->
+        <div id="stage-1" class="glass-card rounded-xl p-4 border-l-4 border-l-indigo-500">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-wider text-indigo-400">STAGE 1 &bull; MACRO REGIME &amp; NEWS FILTER GATE</span>
+              <h2 class="text-sm font-semibold text-white">Sets Market Permission, Choppiness Filter &amp; Directional Bias on Blackboard</h2>
+            </div>
+            <span class="text-xs px-2.5 py-1 rounded bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 font-mono">
+              Outputs &rarr; Stage 2 Hunters &amp; VICTOR
+            </span>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="stage1Grid"></div>
+        </div>
+
+        <!-- RELAY CONNECTOR 1 -> 2 -->
+        <div class="flex items-center justify-center -my-2">
+          <div class="bg-slate-900 border border-slate-700 rounded-full px-4 py-1 text-xs text-sky-300 font-mono flex items-center gap-2 shadow">
+            <span>&darr;</span>
+            <span>Shares: <code>regime_state</code>, <code>chop_index</code>, <code>htf_bias</code>, <code>news_lockout</code></span>
+            <span>&darr;</span>
+          </div>
+        </div>
+
+        <!-- STAGE 2: 6 STRATEGY SETUP HUNTERS -->
+        <div id="stage-2" class="glass-card rounded-xl p-4 border-l-4 border-l-sky-500">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-wider text-sky-400">STAGE 2 &bull; MULTI-STRATEGY SETUP HUNTERS (POD 1)</span>
+              <h2 class="text-sm font-semibold text-white">Scans Multi-Timeframe Structure (1M / 5M / 15M / 1H) Based on ARTHUR's Regime</h2>
+            </div>
+            <span class="text-xs px-2.5 py-1 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30 font-mono">
+              Outputs &rarr; Stage 3 Order Flow Pod &amp; ETHAN
+            </span>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" id="stage2Grid"></div>
+        </div>
+
+        <!-- RELAY CONNECTOR 2 -> 3 -->
+        <div class="flex items-center justify-center -my-2">
+          <div class="bg-slate-900 border border-slate-700 rounded-full px-4 py-1 text-xs text-emerald-300 font-mono flex items-center gap-2 shadow">
+            <span>&darr;</span>
+            <span>Shares: <code>candidate_poi_price</code>, <code>setup_type</code>, <code>raw_sl_price</code>, <code>raw_tp_price</code></span>
+            <span>&darr;</span>
+          </div>
+        </div>
+
+        <!-- STAGE 3: ORDER FLOW & MICROSTRUCTURE POD -->
+        <div id="stage-3" class="glass-card rounded-xl p-4 border-l-4 border-l-emerald-500">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">STAGE 3 &bull; LEVEL 2 DOM &amp; ORDER FLOW VALIDATION (POD 2)</span>
+              <h2 class="text-sm font-semibold text-white">Verifies Institutional Absorption, MBP-10 Book Imbalance &amp; CVD at Setup POI</h2>
+            </div>
+            <span class="text-xs px-2.5 py-1 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-mono">
+              Outputs &rarr; Stage 4 Risk Pod, VICTOR &amp; RYAN
+            </span>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3" id="stage3Grid"></div>
+        </div>
+
+        <!-- RELAY CONNECTOR 3 -> 4 -->
+        <div class="flex items-center justify-center -my-2">
+          <div class="bg-slate-900 border border-slate-700 rounded-full px-4 py-1 text-xs text-purple-300 font-mono flex items-center gap-2 shadow">
+            <span>&darr;</span>
+            <span>Shares: <code>l2_imbalance_ratio</code>, <code>cvd_divergence</code>, <code>vsa_absorption_confirmed</code></span>
+            <span>&darr;</span>
+          </div>
+        </div>
+
+        <!-- STAGE 4: RISK, PSYCHOLOGY, VETERAN & MATH POD -->
+        <div id="stage-4" class="glass-card rounded-xl p-4 border-l-4 border-l-purple-500">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-wider text-purple-400">STAGE 4 &bull; RISK GUARDIAN, VETERAN SANITY FILTER &amp; QUANT MATH (POD 3)</span>
+              <h2 class="text-sm font-semibold text-white">Enforces Drawdown Limits, Spread/Session Check &amp; Exact Contract Sizing</h2>
+            </div>
+            <span class="text-xs px-2.5 py-1 rounded bg-purple-500/15 text-purple-300 border border-purple-500/30 font-mono">
+              Outputs &rarr; Stage 5 VICTOR (Master Boss)
+            </span>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3" id="stage4Grid"></div>
+        </div>
+
+        <!-- RELAY CONNECTOR 4 -> 5 -->
+        <div class="flex items-center justify-center -my-2">
+          <div class="bg-slate-900 border border-slate-700 rounded-full px-4 py-1 text-xs text-amber-300 font-mono flex items-center gap-2 shadow">
+            <span>&darr;</span>
+            <span>Shares: <code>risk_approved</code>, <code>veteran_veto_status</code>, <code>contracts_qty</code>, <code>net_rr_ratio</code></span>
+            <span>&darr;</span>
+          </div>
+        </div>
+
+        <!-- STAGE 5: MASTER CONSENSUS & EXECUTION LIFECYCLE -->
+        <div id="stage-5" class="glass-card rounded-xl p-4 border-l-4 border-l-amber-500">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-wider text-amber-400">STAGE 5 &bull; MASTER COMMAND &amp; LIVE LIFECYCLE EXECUTION (POD 4)</span>
+              <h2 class="text-sm font-semibold text-white">VICTOR Weighs Full Desk Consensus &rarr; RYAN Fires &amp; Manages Tradovate Order</h2>
+            </div>
+            <span class="text-xs px-2.5 py-1 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 font-mono">
+              Tradovate WebSocket (`GC` / `MGC`)
+            </span>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="stage5Grid"></div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT 4 COLS: STICKY INSPECTOR, DATA ROUTING & LIVE BLACKBOARD -->
+      <div class="xl:col-span-4 space-y-5">
+
+        <!-- SELECTED AGENT DEEP-DIVE INSPECTOR -->
+        <div class="glass-card rounded-xl p-5 border border-slate-700/90 sticky top-20 space-y-4">
+          <div class="flex items-start justify-between border-b border-slate-800 pb-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <span id="inspNumber" class="px-2 py-0.5 text-xs font-bold rounded bg-amber-500 text-slate-950">#1</span>
+                <h3 id="inspName" class="text-lg font-bold text-white">VICTOR</h3>
+                <span id="inspCodename" class="text-xs font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30">SOVEREIGN-PRIME</span>
+              </div>
+              <p id="inspRole" class="text-xs text-slate-300 mt-1 font-medium">Desk Head &amp; Master Consensus Arbitrator</p>
+            </div>
+            <span id="inspTimeframe" class="text-xs font-mono px-2.5 py-1 rounded bg-slate-800 text-sky-300 border border-slate-700">All TFs</span>
+          </div>
+
+          <!-- What this agent does -->
+          <div>
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Core Algorithm &amp; Edge</h4>
+            <p id="inspDesc" class="text-xs text-slate-200 leading-relaxed bg-slate-900/70 p-3 rounded-lg border border-slate-800"></p>
+          </div>
+
+          <!-- Incoming Data (Who shares data WITH this agent) -->
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+                RECEIVES DATA FROM (UPSTREAM INPUTS)
+              </h4>
+            </div>
+            <div id="inspInputs" class="space-y-1.5"></div>
+          </div>
+
+          <!-- Outgoing Data (Who this agent shares data TO) -->
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                SHARES DATA TO (DOWNSTREAM TARGETS)
+              </h4>
+            </div>
+            <div id="inspOutputs" class="space-y-1.5"></div>
+          </div>
+
+          <!-- Live Blackboard Payload Shared by this Agent -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-amber-400">Live Blackboard Payload (`state_manager.py`)</h4>
+              <span id="inspFile" class="text-xs font-mono text-slate-400">victor_master.py</span>
+            </div>
+            <pre id="inspPayload" class="bg-slate-950 text-emerald-300 p-3 rounded-lg border border-slate-800 text-xs font-mono overflow-x-auto leading-relaxed"></pre>
+          </div>
+
+          <!-- LIVE FLOOR CHAT LOG -->
+          <div class="border-t border-slate-800 pt-3">
+            <div class="flex items-center justify-between mb-2">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300">Live Desk Floor Tape (Scenario Log)</h4>
+              <span id="scenarioBadge" class="text-xs font-semibold text-emerald-400">NY Open Sweep</span>
+            </div>
+            <div id="deskTape" class="bg-slate-950 border border-slate-800 rounded-lg p-3 h-48 overflow-y-auto space-y-2 text-xs font-mono"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- TAB 2: COMPLETE AGENT-TO-AGENT DATA SHARING MATRIX -->
+    <div id="tab-matrix" class="hidden space-y-6">
+      <div class="glass-card rounded-xl p-6 border border-slate-800">
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <div>
+            <h2 class="text-lg font-bold text-white">Complete Peer-to-Peer Data Sharing &amp; Blackboard Relay Matrix</h2>
+            <p class="text-xs text-slate-400">Every single data packet exchanged between the 16 traders inside <code>src/core/blackboard.py</code> so VICTOR never gets flooded with raw noise.</p>
+          </div>
+          <input type="text" id="matrixSearch" oninput="renderMatrixTable()" placeholder="Filter by agent name, variable, or target..." class="bg-slate-900 border border-slate-700 rounded-lg px-3.5 py-2 text-xs text-white w-72 focus:outline-none focus:border-amber-400" />
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="border-b border-slate-700 text-slate-400 uppercase bg-slate-900/60">
+                <th class="py-3 px-4">Relay Stage</th>
+                <th class="py-3 px-4">Source Agent (Sender)</th>
+                <th class="py-3 px-4">Target Agent(s) (Receiver)</th>
+                <th class="py-3 px-4">Shared Blackboard Keys</th>
+                <th class="py-3 px-4">Why This Data Is Shared &amp; How Target Uses It</th>
+              </tr>
+            </thead>
+            <tbody id="matrixTableBody" class="divide-y divide-slate-800/80"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: IN-TRADE LIFECYCLE ENGINE & FRACTAL CHOP DECOMPOSITION -->
+    <div id="tab-lifecycle" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- 5-Phase Human-Like In-Trade Lifecycle Engine -->
+        <div class="glass-card rounded-xl p-6 border border-slate-800 space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="text-xs font-bold uppercase text-amber-400">RYAN + SAM + OMAR + ELENA COORDINATION</span>
+              <h3 class="text-base font-bold text-white mt-0.5">5-Phase Human-Like Active Trade Management Engine</h3>
+            </div>
+            <span class="px-2.5 py-1 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs font-mono">ryan_executor.py</span>
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Instead of amateur "set-and-forget" bracket orders, RYAN stays wired into SAM (L2 DOM), OMAR (CVD), and ELENA (Price Action) on every millisecond tick after entry to manage the position like a 20-year floor trader:
+          </p>
+
+          <div class="space-y-3">
+            <div class="p-3.5 rounded-lg bg-slate-900/90 border-l-4 border-l-sky-400 border border-slate-800">
+              <div class="flex justify-between items-center">
+                <span class="font-bold text-xs text-white">Phase 1: Precision Bracket Entry (ETHAN &rarr; RYAN)</span>
+                <span class="text-xs font-mono text-sky-400">0.0R &rarr; Entry</span>
+              </div>
+              <p class="text-xs text-slate-300 mt-1">ETHAN calculates exact contracts based on 0.75% equity risk. RYAN fires Limit/Market entry with hard server-side Stop-Loss on Tradovate behind NINA/ELENA's structural invalidation wick.</p>
+            </div>
+
+            <div class="p-3.5 rounded-lg bg-slate-900/90 border-l-4 border-l-indigo-400 border border-slate-800">
+              <div class="flex justify-between items-center">
+                <span class="font-bold text-xs text-white">Phase 2: Break-Even Shield Trigger (ELENA &rarr; RYAN)</span>
+                <span class="text-xs font-mono text-indigo-400">+1.5R Reached</span>
+              </div>
+              <p class="text-xs text-slate-300 mt-1">Once Gold moves +1.5R in favor (or sweeps an internal 1M liquidity pool), ELENA signals structural confirmation. RYAN modifies the Tradovate Stop-Loss to <strong>Entry + 2 ticks</strong> (covering round-turn commissions) for a risk-free trade.</p>
+            </div>
+
+            <div class="p-3.5 rounded-lg bg-slate-900/90 border-l-4 border-l-emerald-400 border border-slate-800">
+              <div class="flex justify-between items-center">
+                <span class="font-bold text-xs text-white">Phase 3: 50% Partial Profit Scale-Out (NINA / KAI &rarr; RYAN)</span>
+                <span class="text-xs font-mono text-emerald-400">+2.0R to +2.5R (TP1)</span>
+              </div>
+              <p class="text-xs text-slate-300 mt-1">At the first major opposing liquidity pool, POC, or 1:2.5 R:R target, RYAN closes <strong>50% of contracts</strong> to bank realized cash while leaving the other 50% as a runner.</p>
+            </div>
+
+            <div class="p-3.5 rounded-lg bg-slate-900/90 border-l-4 border-l-amber-400 border border-slate-800">
+              <div class="flex justify-between items-center">
+                <span class="font-bold text-xs text-white">Phase 4: Dynamic Structural Trailing Stop (ELENA + ARTHUR &rarr; RYAN)</span>
+                <span class="text-xs font-mono text-amber-400">+2.5R to +6.0R+ Runner</span>
+              </div>
+              <p class="text-xs text-slate-300 mt-1">If OMAR sees accelerating CVD and ARTHUR confirms trend expansion, RYAN removes the fixed TP on the runner and trails the Stop-Loss behind every new 5M swing low/high (or 2.2x ATR chandelier) to capture $20–$40 Gold trend moves.</p>
+            </div>
+
+            <div class="p-3.5 rounded-lg bg-slate-900/90 border-l-4 border-l-rose-500 border border-slate-800">
+              <div class="flex justify-between items-center">
+                <span class="font-bold text-xs text-white">Phase 5: L2 DOM Absorption Emergency Exit (SAM + OMAR &rarr; RYAN)</span>
+                <span class="text-xs font-mono text-rose-400">Anytime in Profit</span>
+              </div>
+              <p class="text-xs text-slate-300 mt-1">If price stalls 3 ticks shy of TP and SAM detects a massive resting iceberg wall (&gt;300 GC contracts on MBP-10) absorbing market orders while OMAR spots aggressive counter-Delta, RYAN immediately flattens at market before price reverses.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fractal Timeframe Decomposition (Chop vs Internal Trend) -->
+        <div class="glass-card rounded-xl p-6 border border-slate-800 space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="text-xs font-bold uppercase text-sky-400">ARTHUR + DAVID + NINA + ELENA COORDINATION</span>
+              <h3 class="text-base font-bold text-white mt-0.5">Fractal Timeframe Decomposition (Sideways vs. Internal Trend)</h3>
+            </div>
+            <span class="px-2.5 py-1 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30 text-xs font-mono">arthur_macro.py</span>
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            How the 16 agents distinguish untradeable "Barbed Wire Chop" from a wide 1H sideways candle range that contains clean, profitable 1M/5M internal swings:
+          </p>
+
+          <div class="space-y-3">
+            <div class="p-4 rounded-lg bg-slate-900 border border-slate-800">
+              <h4 class="text-xs font-bold text-amber-400 uppercase mb-1">1. Candle Overlap &amp; Choppiness Index (ARTHUR)</h4>
+              <p class="text-xs text-slate-300">
+                ARTHUR computes the 14-period Choppiness Index (<code>CHOP</code>) and an <strong>Overlap Ratio</strong> over the last 6 Higher-Timeframe (1H/15M) candles:
+                <code>Overlap = Sum(Shared High-Low Range) / Total Range</code>. When <code>CHOP &gt; 61.8</code> or Overlap &gt; 70%, ARTHUR broadcasts <code>regime = "HTF_RANGE"</code> and <strong>locks out MARCUS (Breakout Trader)</strong> so the desk never buys tops or sells bottoms of a range.
+              </p>
+            </div>
+
+            <div class="p-4 rounded-lg bg-slate-900 border border-slate-800">
+              <h4 class="text-xs font-bold text-emerald-400 uppercase mb-1">2. The "Room-to-Breathe" ATR Filter (DAVID + ETHAN)</h4>
+              <p class="text-xs text-slate-300">
+                When 1H candles are overlapping, ARTHUR measures the total width of the 1H range (<code>Range_High - Range_Low</code>) and compares it to the 1M/5M Average True Range (<code>ATR_5m</code>):
+              </p>
+              <ul class="list-disc list-inside text-xs text-slate-300 mt-2 space-y-1">
+                <li><strong class="text-rose-400">Dead Micro-Chop (NO TRADE):</strong> If <code>1H Range Width &lt; 4 &times; ATR_5m</code> (e.g., total box is only $2.50 wide on Gold), DAVID vetoes all agents. There is no room to achieve a 1:2.5 R:R before hitting opposing chop.</li>
+                <li><strong class="text-emerald-400">Tradeable Internal Trend (SCALP MODE ACTIVE):</strong> If <code>1H Range Width &ge; 6 &times; ATR_5m</code> (e.g., $12.00 wide box on Gold), ARTHUR activates <code>INTERNAL_RANGE_PING_PONG</code> mode!</li>
+              </ul>
+            </div>
+
+            <div class="p-4 rounded-lg bg-slate-900 border border-slate-800">
+              <h4 class="text-xs font-bold text-sky-400 uppercase mb-1">3. Internal Trend Execution Inside 1H Chop (NINA + MAX + ELENA)</h4>
+              <p class="text-xs text-slate-300">
+                Once <code>INTERNAL_RANGE_PING_PONG</code> is active, the desk ignores 1H trend continuation and zooms into 1M/3M:
+                <strong>NINA</strong> &amp; <strong>MAX</strong> wait for price to sweep the 1H Range High (VAH) or Range Low (VAL), <strong>SAM</strong> confirms L2 absorption at the boundary, and <strong>ELENA</strong> triggers on the 1M Market Structure Shift (MSS) to ride the clean internal micro-trend back to the central Point of Control (POC) and opposite boundary.
+              </p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // =========================================================================
+    // 1. COMPLETE 16-AGENT ROSTER & DATA-SHARING DEFINITIONS
+    // =========================================================================
+    const AGENTS = [
+      // STAGE 1: MACRO & NEWS GATE
+      {
+        id: "clara",
+        num: 10,
+        name: "CLARA",
+        codename: "AEGIS",
+        stage: 1,
+        role: "Macro News Sentinel",
+        tf: "Macro / Live Calendar",
+        file: "src/agents/clara_news.py",
+        badgeColor: "indigo",
+        status: "CLEAR (GREEN)",
+        desc: "Scrapes ForexFactory & economic feeds for USD High-Impact (Red Folder) events affecting Gold (CPI, NFP, FOMC, PPI, Powell speeches). Enforces a strict 15-minute pre/post news trading lockout or switches post-news to volatility expansion mode.",
+        inputs: [
+          { from: "EXTERNAL", label: "ForexFactory Calendar XML/JSON Feed", keys: "event_time, impact_level, actual_vs_forecast" }
+        ],
+        outputs: [
+          { to: "arthur", name: "ARTHUR", keys: "news_status, upcoming_red_folder_mins" },
+          { to: "victor", name: "VICTOR", keys: "news_lockout_veto (Boolean)" },
+          { to: "ryan", name: "RYAN", keys: "pre_news_flatten_signal" }
+        ],
+        payload: {
+          agent: "CLARA",
+          news_status: "CLEAR",
+          next_red_folder: "USD Core CPI in 4h 12m",
+          news_lockout_veto: false,
+          timestamp: "14:30:00.010Z"
+        }
+      },
+      {
+        id: "arthur",
+        num: 2,
+        name: "ARTHUR",
+        codename: "ATLAS",
+        stage: 1,
+        role: "Trend Director & Regime Router",
+        tf: "4H / 1H / 15M",
+        file: "src/agents/arthur_macro.py",
+        badgeColor: "indigo",
+        status: "BULLISH TREND",
+        desc: "Calculates 50/200 EMA slope, ADX(14), 14-period Choppiness Index (CHOP), and 6-bar Candle Overlap Ratio. Classifies Gold into one of 4 regimes: BULLISH_TREND, BEARISH_TREND, INTERNAL_RANGE_SCALP, or DEAD_CHOP_LOCKOUT.",
+        inputs: [
+          { from: "EXTERNAL", label: "Databento / Tradovate 15M, 1H, 4H Bars", keys: "OHLCV multi-timeframe series" },
+          { from: "clara", label: "CLARA (News Sentinel)", keys: "news_status" }
+        ],
+        outputs: [
+          { to: "marcus", name: "MARCUS", keys: "regime, adx_value (Enables/Disables Breakouts)" },
+          { to: "nina", name: "NINA", keys: "htf_bias, htf_range_bounds" },
+          { to: "max", name: "MAX", keys: "regime, chop_index" },
+          { to: "leo", name: "LEO", keys: "htf_daily_bias" },
+          { to: "kai", name: "KAI", keys: "major_swing_anchor_points" },
+          { to: "elena", name: "ELENA", keys: "regime, internal_range_mode" },
+          { to: "victor", name: "VICTOR", keys: "regime_state, macro_bias_score" }
+        ],
+        payload: {
+          agent: "ARTHUR",
+          regime: "BULLISH_TREND",
+          macro_bias: "LONG",
+          adx_14: 34.8,
+          chop_index: 31.4,
+          htf_overlap_pct: 22.0,
+          internal_range_mode: false
+        }
+      },
+
+      // STAGE 2: 6 STRATEGY SETUP HUNTERS
+      {
+        id: "marcus",
+        num: 3,
+        name: "MARCUS",
+        codename: "PHANTOM",
+        stage: 2,
+        role: "Breakout & Range Expansion Hunter",
+        tf: "15M / 1H",
+        file: "src/agents/setups/marcus_breakout.py",
+        badgeColor: "sky",
+        status: "STANDBY (WATCHING VAH)",
+        desc: "Tracks Session Highs/Lows (Asian, London, NY), Volume Profile Value Area High (VAH), Value Area Low (VAL), and Point of Control (POC). Fires when price compresses tightly and expands outside Value Area with high relative volume.",
+        inputs: [
+          { from: "arthur", label: "ARTHUR (Regime Router)", keys: "regime, chop_index (Disabled if CHOP > 61.8)" },
+          { from: "EXTERNAL", label: "Session Volume Profile & 15M Bars", keys: "VAH, VAL, POC, session_high_low" }
+        ],
+        outputs: [
+          { to: "sam", name: "SAM", keys: "breakout_level_price (Request L2 DOM check)" },
+          { to: "jack", name: "JACK", keys: "breakout_candle_volume_check" },
+          { to: "ethan", name: "ETHAN", keys: "candidate_setup (Entry, SL, TP)" },
+          { to: "victor", name: "VICTOR", keys: "setup_vote_marcus" }
+        ],
+        payload: {
+          agent: "MARCUS",
+          setup_active: false,
+          watching_level: 2748.50,
+          level_type: "NY_VAH_BREAKOUT",
+          confidence: 0.64
+        }
+      },
+      {
+        id: "nina",
+        num: 4,
+        name: "NINA",
+        codename: "HUNTER",
+        stage: 2,
+        role: "Liquidity Sweep & SMC Specialist",
+        tf: "5M / 15M",
+        file: "src/agents/setups/nina_smc.py",
+        badgeColor: "sky",
+        status: "SIGNAL: EQL SWEEP + FVG",
+        desc: "Maps Equal Highs (EQH), Equal Lows (EQL), Order Blocks (OB), Fair Value Gaps (FVG), and Balanced Price Ranges (BPR). Hunts institutional stop-hunts where Gold sweeps resting retail stop-losses and snaps back inside structure.",
+        inputs: [
+          { from: "arthur", label: "ARTHUR (Regime Router)", keys: "htf_bias, regime" },
+          { from: "leo", label: "LEO (ICT Killzone)", keys: "active_killzone_window" }
+        ],
+        outputs: [
+          { to: "sam", name: "SAM", keys: "swept_pool_price, fvg_zone (Verify L2 absorption)" },
+          { to: "omar", name: "OMAR", keys: "sweep_timestamp (Verify CVD exhaustion)" },
+          { to: "elena", name: "ELENA", keys: "poi_zone_reached (Confirm 1M MSS candle)" },
+          { to: "ethan", name: "ETHAN", keys: "candidate_setup (Entry: 2742.5, SL: 2738.0, TP: 2755.0)" },
+          { to: "victor", name: "VICTOR", keys: "setup_vote_nina (Confidence: 0.91)" }
+        ],
+        payload: {
+          agent: "NINA",
+          setup_active: true,
+          setup_type: "EQL_LIQUIDITY_SWEEP_FVG",
+          direction: "LONG",
+          entry_poi: 2742.50,
+          invalidation_sl: 2738.00,
+          target_tp1: 2753.80,
+          target_tp2: 2762.00,
+          confidence: 0.91
+        }
+      },
+      {
+        id: "max",
+        num: 5,
+        name: "MAX",
+        codename: "REVERSE",
+        stage: 2,
+        role: "Institutional Trap & Failed Breakout Trader",
+        tf: "1M / 5M",
+        file: "src/agents/setups/max_trap.py",
+        badgeColor: "sky",
+        status: "CONFIRMING BEAR TRAP",
+        desc: "Monitors MARCUS's breakout levels for failure. When retail traders chase a breakout above/below a key level and get trapped by institutional limit orders, MAX triggers a counter-trap reversal setup.",
+        inputs: [
+          { from: "marcus", label: "MARCUS (Breakout Levels)", keys: "session_high_low, VAH, VAL" },
+          { from: "arthur", label: "ARTHUR (Regime Router)", keys: "regime, chop_index" }
+        ],
+        outputs: [
+          { to: "sam", name: "SAM", keys: "trap_wick_price (Check trapped trader DOM)" },
+          { to: "omar", name: "OMAR", keys: "trapped_delta_check" },
+          { to: "ethan", name: "ETHAN", keys: "candidate_setup" },
+          { to: "victor", name: "VICTOR", keys: "setup_vote_max" }
+        ],
+        payload: {
+          agent: "MAX",
+          setup_active: true,
+          trap_detected: "BEAR_TRAP_BELOW_2740",
+          direction: "LONG",
+          trapped_sellers_est: "High",
+          confidence: 0.85
+        }
+      },
+      {
+        id: "leo",
+        num: 6,
+        name: "LEO",
+        codename: "CHRONOS",
+        stage: 2,
+        role: "ICT Time, Killzones & AMD Specialist",
+        tf: "1M / 5M / 15M",
+        file: "src/agents/setups/leo_ict.py",
+        badgeColor: "sky",
+        status: "NY SILVER BULLET ACTIVE",
+        desc: "Tracks time-of-day precision: London Open (02:00-05:00 EST), NY Open (08:00-11:00 EST), Silver Bullet windows (10:00-11:00 EST), Midnight NY Open price, and Accumulation-Manipulation-Distribution (AMD) Power of 3 cycles.",
+        inputs: [
+          { from: "arthur", label: "ARTHUR (Regime Router)", keys: "htf_daily_bias" },
+          { from: "clara", label: "CLARA (News Sentinel)", keys: "news_status" }
+        ],
+        outputs: [
+          { to: "nina", name: "NINA", keys: "active_killzone_window, judas_swing_complete" },
+          { to: "kai", name: "KAI", keys: "ote_impulse_leg" },
+          { to: "ethan", name: "ETHAN", keys: "candidate_setup" },
+          { to: "victor", name: "VICTOR", keys: "time_confluence_score (0.94)" }
+        ],
+        payload: {
+          agent: "LEO",
+          killzone: "NY_OPEN_SILVER_BULLET",
+          amd_phase: "DISTRIBUTION_EXPANSION",
+          ny_midnight_open: 2739.20,
+          price_vs_midnight: "DISCOUNT_SWEEP_COMPLETE",
+          confidence: 0.94
+        }
+      },
+      {
+        id: "kai",
+        num: 7,
+        name: "KAI",
+        codename: "VECTOR",
+        stage: 2,
+        role: "Fibonacci & Harmonic Quant",
+        tf: "5M / 15M",
+        file: "src/agents/setups/kai_fib.py",
+        badgeColor: "sky",
+        status: "70.5% OTE CONFLUENCE",
+        desc: "Automatically anchors Fibonacci retracements and extensions on verified institutional impulse legs. Identifies Golden Pocket (61.8% - 78.6%) and ICT Optimal Trade Entry (70.5%) overlaps with NINA's FVGs.",
+        inputs: [
+          { from: "arthur", label: "ARTHUR (Swing Anchors)", keys: "major_swing_anchor_points" },
+          { from: "leo", label: "LEO (ICT Impulse)", keys: "ote_impulse_leg" }
+        ],
+        outputs: [
+          { to: "nina", name: "NINA", keys: "golden_pocket_fvg_overlap" },
+          { to: "ethan", name: "ETHAN", keys: "fib_extension_targets (-0.272, -0.618)" },
+          { to: "victor", name: "VICTOR", keys: "fib_confluence_vote" }
+        ],
+        payload: {
+          agent: "KAI",
+          golden_pocket_zone: [2741.80, 2743.10],
+          ote_705_level: 2742.45,
+          ext_tp1: 2753.80,
+          ext_tp2: 2761.90,
+          confluence_match: true
+        }
+      },
+      {
+        id: "elena",
+        num: 8,
+        name: "ELENA",
+        codename: "SPARTAN",
+        stage: 2,
+        role: "Pure Price Action & Candle Structure Master",
+        tf: "1M / 5M / 15M",
+        file: "src/agents/setups/elena_priceaction.py",
+        badgeColor: "sky",
+        status: "1M MSS + PINBAR CONFIRMED",
+        desc: "Reads naked candle auction mechanics: wick-to-body ratios (>2.5x tail rejection), bullish/bearish engulfing displacement, micro Market Structure Shifts (MSS), and swing trail points for RYAN's active trade lifecycle.",
+        inputs: [
+          { from: "arthur", label: "ARTHUR (Regime Router)", keys: "regime, internal_range_mode" },
+          { from: "nina", label: "NINA (SMC POI)", keys: "poi_zone_reached" }
+        ],
+        outputs: [
+          { to: "jack", name: "JACK", keys: "rejection_wick_bar (Verify VSA volume)" },
+          { to: "victor", name: "VICTOR", keys: "price_action_trigger_confirmed" },
+          { to: "ryan", name: "RYAN", keys: "dynamic_swing_trail_sl, breakeven_trigger" }
+        ],
+        payload: {
+          agent: "ELENA",
+          candle_signal: "BULLISH_DISPLACEMENT_ENGULFING",
+          lower_wick_ratio: 3.1,
+          mss_confirmed_1m: true,
+          structural_trail_sl: 2738.00,
+          confidence: 0.89
+        }
+      },
+
+      // STAGE 3: ORDER FLOW & MICROSTRUCTURE POD
+      {
+        id: "jack",
+        num: 9,
+        name: "JACK",
+        codename: "PULSE",
+        stage: 3,
+        role: "Volume Spread Analysis (VSA) Quant",
+        tf: "1M / 5M",
+        file: "src/agents/orderflow/jack_vsa.py",
+        badgeColor: "emerald",
+        status: "STOPPING VOLUME CONFIRMED",
+        desc: "Analyzes real COMEX contract volume vs. candle spread (Effort vs. Result). Detects institutional Stopping Volume on wicks, No-Supply / No-Demand tests, and climax exhaustion.",
+        inputs: [
+          { from: "nina", label: "NINA / MARCUS / ELENA", keys: "poi_zone_reached, rejection_wick_bar" },
+          { from: "EXTERNAL", label: "COMEX GC Real Contract Volume", keys: "bar_volume, volume_z_score" }
+        ],
+        outputs: [
+          { to: "david", name: "DAVID", keys: "session_volume_health" },
+          { to: "victor", name: "VICTOR", keys: "vsa_confirmation_score" }
+        ],
+        payload: {
+          agent: "JACK",
+          vsa_pattern: "INSTITUTIONAL_STOPPING_VOLUME",
+          volume_z_score: 2.74,
+          effort_vs_result: "ABSORPTION_AT_LOWS",
+          confirmed: true
+        }
+      },
+      {
+        id: "sam",
+        num: 11,
+        name: "SAM",
+        codename: "VORTEX",
+        stage: 3,
+        role: "Level 2 Order Book Depth (MBP-10) Quant",
+        tf: "Millisecond Tick / DOM",
+        file: "src/agents/orderflow/sam_l2.py",
+        badgeColor: "emerald",
+        status: "2.9x BID STACK + ICEBERG",
+        desc: "Ingests Databento MBP-10 (10 levels of CME order book depth) & Tradovate DOM. Computes Bid/Ask Queue Imbalance (>2.5:1), detects passive iceberg absorption at NINA's POI, flags spoofing, and alerts RYAN of opposing walls in-trade.",
+        inputs: [
+          { from: "nina", label: "NINA / MARCUS / MAX", keys: "entry_poi, swept_pool_price" },
+          { from: "EXTERNAL", label: "Databento MBP-10 / Tradovate L2 DOM", keys: "bid_px_00..09, ask_px_00..09, bid_sz, ask_sz" }
+        ],
+        outputs: [
+          { to: "david", name: "DAVID", keys: "bid_ask_spread_ticks, book_liquidity_thin" },
+          { to: "victor", name: "VICTOR", keys: "l2_dom_approved, imbalance_ratio" },
+          { to: "ryan", name: "RYAN", keys: "opposing_iceberg_emergency_exit" }
+        ],
+        payload: {
+          agent: "SAM",
+          schema: "MBP-10 (10-Level Depth)",
+          bid_ask_imbalance: 2.92,
+          passive_iceberg_detected: true,
+          iceberg_level: 2742.20,
+          spread_ticks: 1,
+          l2_approved: true
+        }
+      },
+      {
+        id: "omar",
+        num: 12,
+        name: "OMAR",
+        codename: "CITADEL",
+        stage: 3,
+        role: "Cumulative Volume Delta (CVD) & Tape Tracker",
+        tf: "Tick / 1M",
+        file: "src/agents/orderflow/omar_cvd.py",
+        badgeColor: "emerald",
+        status: "CVD ABSORPTION DIVERGENCE",
+        desc: "Tracks aggressive Market Buy vs. Market Sell orders (Delta = Ask Volume - Bid Volume). Identifies CVD Absorption Divergences (heavy market selling into a level while price refuses to drop) and tape acceleration.",
+        inputs: [
+          { from: "nina", label: "NINA / MAX", keys: "sweep_timestamp, trap_wick_price" },
+          { from: "EXTERNAL", label: "Tick Trade Tape (Aggressor Side)", keys: "trade_price, trade_size, aggressor_side" }
+        ],
+        outputs: [
+          { to: "victor", name: "VICTOR", keys: "cvd_divergence_confirmed, delta_momentum" },
+          { to: "ryan", name: "RYAN", keys: "runner_delta_acceleration (Hold Runner vs Cut)" }
+        ],
+        payload: {
+          agent: "OMAR",
+          bar_delta: "+418 Contracts",
+          cvd_divergence: "BULLISH_ABSORPTION_AT_2742",
+          aggressive_buyers_stepping_in: true,
+          cvd_approved: true
+        }
+      },
+
+      // STAGE 4: RISK, VETERAN & MATH POD
+      {
+        id: "sarah",
+        num: 13,
+        name: "SARAH",
+        codename: "MENTOR",
+        stage: 4,
+        role: "Risk Guardian & Trading Psychologist",
+        tf: "Account & Session State",
+        file: "src/agents/risk/sarah_psychology.py",
+        badgeColor: "purple",
+        status: "APPROVED (1/3 TRADES TODAY)",
+        desc: "Protects account equity and prevents algorithmic tilt. Enforces max 2–3 trades/day, -2.0% daily drawdown circuit breaker, 45-minute cooldown after 2 consecutive losses, and blocks oversized revenge setups.",
+        inputs: [
+          { from: "ryan", label: "RYAN (Execution Ledger)", keys: "daily_pnl, trades_taken_today, streak_state" }
+        ],
+        outputs: [
+          { to: "ethan", name: "ETHAN", keys: "allowed_risk_pct (0.75% normal, 0.35% drawdown)" },
+          { to: "victor", name: "VICTOR", keys: "psychology_circuit_breaker_veto" }
+        ],
+        payload: {
+          agent: "SARAH",
+          trades_today: "1 / 3 Max",
+          daily_pnl_pct: "+1.42%",
+          max_dd_limit: "-2.00%",
+          cooldown_active: false,
+          risk_multiplier: 1.0,
+          sarah_approved: true
+        }
+      },
+      {
+        id: "david",
+        num: 14,
+        name: "DAVID",
+        codename: "SENIOR",
+        stage: 4,
+        role: "20-Year Veteran Floor Trader Filter",
+        tf: "Cross-Market Sanity Check",
+        file: "src/agents/risk/david_veteran.py",
+        badgeColor: "purple",
+        status: "PASSED SMELL TEST",
+        desc: "The common-sense 20-year veteran filter. Vetoes trades if: (1) Gold spread > 3 ticks, (2) 1H range is narrower than 4x 5M ATR (no room to breathe), (3) Friday after 14:00 EST or CME maintenance rollover window, or (4) entry is directly into a major HTF wall.",
+        inputs: [
+          { from: "sam", label: "SAM (L2 DOM)", keys: "bid_ask_spread_ticks, book_liquidity_thin" },
+          { from: "jack", label: "JACK (VSA Volume)", keys: "session_volume_health" },
+          { from: "arthur", label: "ARTHUR (Regime)", keys: "htf_range_bounds, atr_5m" }
+        ],
+        outputs: [
+          { to: "victor", name: "VICTOR", keys: "veteran_sanity_approved, veto_reason" }
+        ],
+        payload: {
+          agent: "DAVID",
+          spread_check: "PASS (1.0 Tick)",
+          room_to_opposing_wall: "$11.30 (3.4x ATR)",
+          session_liquidity: "HIGH (NY_MORNING)",
+          friday_cutoff_lock: false,
+          david_approved: true
+        }
+      },
+      {
+        id: "ethan",
+        num: 15,
+        name: "ETHAN",
+        codename: "MATRIX",
+        stage: 4,
+        role: "Mathematician, Fee & Position Sizing Quant",
+        tf: "Tick Math & Account Equity",
+        file: "src/agents/risk/ethan_math.py",
+        badgeColor: "purple",
+        status: "2 MGC CONTRACTS (2.51 R:R)",
+        desc: "Computes exact GC ($10/tick) or MGC ($1/tick) contract size from SARAH's risk allowance and NINA/ELENA's SL distance. Deducts round-turn Tradovate commissions + 1-tick slippage to verify Net Risk-to-Reward >= 1:2.5.",
+        inputs: [
+          { from: "nina", label: "NINA / MARCUS / MAX / KAI", keys: "entry_poi, invalidation_sl, target_tp1" },
+          { from: "sarah", label: "SARAH (Risk Guardian)", keys: "allowed_risk_pct (0.75%)" }
+        ],
+        outputs: [
+          { to: "victor", name: "VICTOR", keys: "net_rr_valid, mathematical_edge_approved" },
+          { to: "ryan", name: "RYAN", keys: "contract_symbol (MGCZ6), contracts_qty, bracket_prices" }
+        ],
+        payload: {
+          agent: "ETHAN",
+          symbol: "MGC (Micro Gold Futures)",
+          account_equity: "$10,000.00",
+          dollar_risk_budget: "$75.00 (0.75%)",
+          sl_distance_pts: 4.50,
+          contracts_qty: 1,
+          net_rr_after_fees: 2.51,
+          math_approved: true
+        }
+      },
+
+      // STAGE 5: MASTER CONSENSUS & EXECUTION
+      {
+        id: "victor",
+        num: 1,
+        name: "VICTOR",
+        codename: "SOVEREIGN-PRIME",
+        stage: 5,
+        role: "Desk Boss & Master Consensus Arbitrator",
+        tf: "All-Stage Blackboard Synthesis",
+        file: "src/execution/victor_master.py",
+        badgeColor: "amber",
+        status: "CONSENSUS 92% -> FIRE LONG",
+        desc: "The Master Decision Maker. VICTOR never touches raw candles; he reads the structured Stage 1–4 summary on the Blackboard. Requires zero hard vetoes (CLARA, SARAH, DAVID, ETHAN) and weighted consensus >= 80% before commanding RYAN to pull the trigger.",
+        inputs: [
+          { from: "clara", label: "Stage 1: CLARA & ARTHUR", keys: "news_lockout_veto, regime_state" },
+          { from: "nina", label: "Stage 2: Setup Hunters (NINA, MAX, LEO, KAI, ELENA)", keys: "candidate_setup, confluence_votes" },
+          { from: "sam", label: "Stage 3: Order Flow Pod (SAM, OMAR, JACK)", keys: "l2_dom_approved, cvd_approved, vsa_confirmed" },
+          { from: "sarah", label: "Stage 4: Risk & Math Pod (SARAH, DAVID, ETHAN)", keys: "sarah_approved, david_approved, math_approved" }
+        ],
+        outputs: [
+          { to: "ryan", name: "RYAN", keys: "MASTER_EXECUTION_COMMAND (GO_LONG / GO_SHORT / HOLD)" }
+        ],
+        payload: {
+          agent: "VICTOR",
+          decision: "EXECUTE_LONG_NOW",
+          consensus_score: "92.4%",
+          hard_vetoes: 0,
+          winning_setup: "NINA (EQL Sweep) + LEO (NY Silver Bullet) + SAM (2.9x L2)",
+          command_to_ryan: "PLACE_BRACKET_ORDER"
+        }
+      },
+      {
+        id: "ryan",
+        num: 16,
+        name: "RYAN",
+        codename: "APEX",
+        stage: 5,
+        role: "Tradovate WebSocket Execution & Lifecycle Trader",
+        tf: "Sub-Millisecond WebSocket",
+        file: "src/execution/ryan_executor.py",
+        badgeColor: "amber",
+        status: "ORDER LIVE + LIFECYCLE ARMED",
+        desc: "Authenticates via Tradovate username/password WebSocket (`order/placeoso`). Fires bracket orders in <15ms and runs the 5-Phase Active Trade Lifecycle: Break-Even at +1.5R, 50% Partial at TP1, Swing Trail with ELENA, or Emergency DOM Exit with SAM.",
+        inputs: [
+          { from: "victor", label: "VICTOR (Desk Boss)", keys: "MASTER_EXECUTION_COMMAND" },
+          { from: "ethan", label: "ETHAN (Math Quant)", keys: "contract_symbol, contracts_qty, bracket_prices" },
+          { from: "elena", label: "ELENA (Price Action)", keys: "dynamic_swing_trail_sl, breakeven_trigger" },
+          { from: "sam", label: "SAM & OMAR (Live L2 / CVD)", keys: "opposing_iceberg_emergency_exit, runner_delta" }
+        ],
+        outputs: [
+          { to: "sarah", name: "SARAH", keys: "fill_confirmation, realized_pnl, trades_taken_today" },
+          { to: "EXTERNAL", label: "Tradovate Exchange WebSocket", keys: "placeOSO Bracket + Trailing Modify" }
+        ],
+        payload: {
+          agent: "RYAN",
+          broker: "Tradovate WebSocket (COMEX)",
+          order_type: "OSO Bracket (Entry + SL + TP1/TP2)",
+          entry_fill: 2742.50,
+          active_sl: 2738.00,
+          tp1_50pct: 2753.80,
+          lifecycle_state: "PHASE_1_ARMED_WATCHING_1.5R_BE"
+        }
+      }
+    ];
+
+    // =========================================================================
+    // 2. COMPLETE PEER-TO-PEER DATA ROUTING TABLE (FOR MATRIX TAB)
+    // =========================================================================
+    const DATA_FLOWS = [
+      { stage: "Stage 1 -> Stage 1", from: "CLARA (#10)", to: "ARTHUR (#2)", keys: "news_status, upcoming_red_folder_mins", desc: "Tells ARTHUR if an upcoming CPI/NFP release is about to distort technical trend metrics." },
+      { stage: "Stage 1 -> Stage 5", from: "CLARA (#10)", to: "VICTOR (#1) & RYAN (#16)", keys: "news_lockout_veto, pre_news_flatten_signal", desc: "Hard veto 15m before/after Red Folder news; instructs RYAN to tighten or flatten open positions." },
+      { stage: "Stage 1 -> Stage 2", from: "ARTHUR (#2)", to: "MARCUS (#3)", keys: "regime, adx_14, chop_index", desc: "Disables MARCUS breakout hunting whenever CHOP > 61.8 so the desk never buys range highs." },
+      { stage: "Stage 1 -> Stage 2", from: "ARTHUR (#2)", to: "NINA (#4), MAX (#5), ELENA (#8)", keys: "regime, htf_bias, internal_range_mode", desc: "Switches hunters between HTF Trend Pullback mode and Fractal 1M Internal Range Ping-Pong mode." },
+      { stage: "Stage 2 -> Stage 2", from: "LEO (#6)", to: "NINA (#4) & KAI (#7)", keys: "active_killzone_window, ote_impulse_leg", desc: "Confirms London/NY Silver Bullet time window and passes the impulse leg for KAI's Fib anchors." },
+      { stage: "Stage 2 -> Stage 2", from: "MARCUS (#3)", to: "MAX (#5)", keys: "session_high_low, VAH, VAL", desc: "Shares key breakout levels so MAX can immediately spot failed breakouts (Bull/Bear traps)." },
+      { stage: "Stage 2 -> Stage 2", from: "KAI (#7)", to: "NINA (#4)", keys: "golden_pocket_fvg_overlap", desc: "Boosts NINA's setup confidence when an SMC Fair Value Gap aligns with the 61.8%-78.6% Fib zone." },
+      { stage: "Stage 2 -> Stage 3", from: "NINA (#4), MARCUS (#3), MAX (#5)", to: "SAM (#11)", keys: "entry_poi, swept_pool_price", desc: "Tells SAM the exact Gold price level to inspect on the Databento MBP-10 / Tradovate 10-level DOM." },
+      { stage: "Stage 2 -> Stage 3", from: "NINA (#4) & MAX (#5)", to: "OMAR (#12)", keys: "sweep_timestamp, trap_wick_price", desc: "Requests OMAR to check Cumulative Volume Delta (CVD) for seller exhaustion or absorption divergence." },
+      { stage: "Stage 2 -> Stage 3", from: "ELENA (#8) & NINA (#4)", to: "JACK (#9)", keys: "rejection_wick_bar, poi_zone_reached", desc: "Asks JACK to verify real COMEX contract Stopping Volume on the rejection candle." },
+      { stage: "Stage 3 -> Stage 4", from: "SAM (#11) & JACK (#9)", to: "DAVID (#14)", keys: "bid_ask_spread_ticks, session_volume_health", desc: "Gives Veteran DAVID live spread and book depth metrics to veto thin or illiquid market conditions." },
+      { stage: "Stage 2 -> Stage 4", from: "NINA (#4), KAI (#7), ELENA (#8)", to: "ETHAN (#15)", keys: "entry_poi, invalidation_sl, target_tp1", desc: "Sends exact setup coordinates so ETHAN can compute stop distance in ticks, fees, and net R:R." },
+      { stage: "Stage 4 -> Stage 4", from: "SARAH (#13)", to: "ETHAN (#15)", keys: "allowed_risk_pct, risk_multiplier", desc: "Passes current risk allowance (0.75% normal or scaled down after a loss) to calculate contract quantity." },
+      { stage: "Stages 1-4 -> Stage 5", from: "ALL PODS (#2-#15)", to: "VICTOR (#1)", keys: "Normalized Blackboard State Object", desc: "Every pod writes its boolean approval & confidence score to the Blackboard for VICTOR's final vote." },
+      { stage: "Stage 5 -> Stage 5", from: "VICTOR (#1) & ETHAN (#15)", to: "RYAN (#16)", keys: "MASTER_EXECUTION_COMMAND, contracts_qty, brackets", desc: "Triggers RYAN to fire the OSO bracket order on Tradovate WebSocket." },
+      { stage: "Stages 2-3 -> Stage 5 (In-Trade)", from: "ELENA (#8), SAM (#11), OMAR (#12)", to: "RYAN (#16)", keys: "breakeven_trigger, swing_trail_sl, iceberg_exit", desc: "Live tick-by-tick feed while in a trade: moves SL to BE at +1.5R, trails swings, or exits early on DOM walls." },
+      { stage: "Stage 5 -> Stage 4", from: "RYAN (#16)", to: "SARAH (#13)", keys: "fill_confirmation, realized_pnl, trades_today", desc: "Updates SARAH's daily trade counter and PnL ledger after every closed position." }
+    ];
+
+    // =========================================================================
+    // 3. MARKET SCENARIOS FOR INTERACTIVE SIMULATION
+    // =========================================================================
+    const SCENARIOS = {
+      ny_sweep: {
+        title: "NY Open Liquidity Sweep (LONG EXECUTED)",
+        price: "$2,742.60",
+        regime: "BULLISH TREND (CHOP 31.4)",
+        dom: "2.9x BID IMBALANCE",
+        news: "CLEAR (NO RED FOLDER)",
+        statuses: {
+          clara: "CLEAR (GREEN)",
+          arthur: "BULLISH TREND (ADX 34.8)",
+          marcus: "STANDBY (WATCHING VAH)",
+          nina: "SIGNAL: EQL SWEEP + FVG",
+          max: "BEAR TRAP CONFIRMED",
+          leo: "NY SILVER BULLET (0.94)",
+          kai: "70.5% OTE OVERLAP",
+          elena: "1M MSS + PINBAR (3.1x WICK)",
+          jack: "STOPPING VOL (Z=2.74)",
+          sam: "2.9x BID STACK + ICEBERG",
+          omar: "BULLISH CVD ABSORPTION",
+          sarah: "APPROVED (1/3 TRADES)",
+          david: "PASSED (1 TICK SPREAD)",
+          ethan: "1 MGC CONTRACT (2.51 R:R)",
+          victor: "CONSENSUS 92.4% -> GO LONG",
+          ryan: "LONG @ 2742.50 | LIFECYCLE ON"
+        },
+        tape: [
+          "[08:30:01] CLARA: No Red-Folder USD news for next 4h. Desk unlocked.",
+          "[08:30:02] ARTHUR: 4H/1H Bullish Trend confirmed (ADX 34.8, CHOP 31.4). Hunting Long pullbacks.",
+          "[08:32:10] LEO: NY Open Killzone & Silver Bullet window active. Price swept below NY Midnight Open ($2,739.20).",
+          "[08:32:14] NINA: Equal Lows (EQL) swept at $2,741.80 into 15M Bullish FVG! Passing POI $2,742.50 to SAM & OMAR.",
+          "[08:32:15] KAI: Confirmed NINA's FVG aligns with 70.5% OTE Fibonacci retracement.",
+          "[08:32:16] SAM (MBP-10): 2.92x Bid/Ask imbalance + passive 185-lot iceberg order absorbing sellers at $2,742.20!",
+          "[08:32:16] OMAR (CVD): Sellers hit the bid with 640 contracts but price held firm -> Bullish CVD Absorption confirmed.",
+          "[08:32:17] ELENA: 1M Bullish Engulfing + Market Structure Shift (MSS) closed above $2,742.50.",
+          "[08:32:17] SARAH & DAVID: Daily PnL +1.42%, Spread 1 tick, $11.30 room to VAH. Risk & Veteran checks PASSED.",
+          "[08:32:18] ETHAN: Risk $75 (0.75%), SL $2,738.00 (4.5 pts), TP1 $2,753.80 -> Net R:R = 2.51 after fees.",
+          "[08:32:18] VICTOR (BOSS): 92.4% Consensus achieved. Zero vetoes. Commanding RYAN: EXECUTE LONG.",
+          "[08:32:18] RYAN: Fired Tradovate OSO Bracket @ $2,742.50. Armed Phase 2 (+1.5R Break-Even) & SAM DOM monitor."
+        ]
+      },
+      htf_chop: {
+        title: "1H Overlapping Chop -> 1M Internal Range Scalp",
+        price: "$2,736.10",
+        regime: "1H RANGE -> 1M INTERNAL SCALP",
+        dom: "2.6x BID AT VAL BOUNDARY",
+        news: "CLEAR (NO RED FOLDER)",
+        statuses: {
+          clara: "CLEAR (GREEN)",
+          arthur: "HTF CHOP (66.2) -> RANGE MODE",
+          marcus: "LOCKED OUT (CHOP > 61.8)",
+          nina: "VAL SWEEP @ $2,735.50",
+          max: "RANGE LOW BEAR TRAP",
+          leo: "LONDON CLOSE WINDOW",
+          kai: "RANGE EQUILIBRIUM TARGET",
+          elena: "1M INTERNAL UPTREND MSS",
+          jack: "CLIMAX VOL AT VAL",
+          sam: "2.6x BID ABSORPTION AT VAL",
+          omar: "DELTA FLIP POSITIVE",
+          sarah: "APPROVED (SCALP SIZE)",
+          david: "PASSED ($12.40 BOX WIDTH)",
+          ethan: "1 MGC (TARGET: POC $2,741.80)",
+          victor: "INTERNAL SCALP -> GO LONG",
+          ryan: "SCALP LONG -> FAST BE AT +1R"
+        },
+        tape: [
+          "[10:15:00] ARTHUR: 1H candles have 74% overlap (CHOP = 66.2). Locking out MARCUS (Breakouts disabled).",
+          "[10:15:01] ARTHUR + DAVID: Checking 1H Range Width: $2,735.50 (VAL) to $2,747.90 (VAH) = $12.40 width (7.1x 5M ATR).",
+          "[10:15:02] DAVID: Box is wide enough to trade safely! Enabling Fractal INTERNAL_RANGE_PING_PONG mode.",
+          "[10:18:22] NINA & MAX: Gold swept 1H Range Low (VAL $2,735.50) and trapped breakout sellers.",
+          "[10:18:23] SAM & OMAR: L2 Bid wall absorbed the sweep at $2,735.40; Delta flipped +310 contracts.",
+          "[10:19:00] ELENA: 1M chart printed clean internal Higher Low + MSS! Riding internal 1M uptrend back to POC ($2,741.80).",
+          "[10:19:01] VICTOR: Approved Fractal Internal Range Long. RYAN targeting POC for 50% partial and VAH for runner."
+        ]
+      },
+      cpi_veto: {
+        title: "Red-Folder USD CPI Release (CLARA HARD VETO)",
+        price: "$2,750.00",
+        regime: "NEWS BLACKOUT LOCK",
+        dom: "THIN BOOK (SPREAD 6 TICKS)",
+        news: "RED FOLDER: USD CPI IN 4 MIN",
+        statuses: {
+          clara: "VETO! USD CPI IN 4 MINS",
+          arthur: "FROZEN BY CLARA",
+          marcus: "SUSPENDED",
+          nina: "SETUP IGNORED (NEWS)",
+          max: "SUSPENDED",
+          leo: "NEWS BLACKOUT",
+          kai: "SUSPENDED",
+          elena: "WHIPSAW WARNING",
+          jack: "ERRATIC PRE-NEWS VOL",
+          sam: "DANGER: SPREAD 6 TICKS!",
+          omar: "LIQUIDITY PULLED",
+          sarah: "CAPITAL PROTECTION LOCK",
+          david: "VETO! THIN DOM & SPREAD",
+          ethan: "SIZING BLOCKED",
+          victor: "HARD VETO — NO TRADE",
+          ryan: "ALL ORDERS CANCELLED / FLAT"
+        },
+        tape: [
+          "[08:26:00] CLARA (ALERT): High-Impact USD Core CPI release in 4 minutes (08:30 EST)! Raising Red-Folder Lockout.",
+          "[08:26:01] SAM (MBP-10): Market makers pulling L2 limit orders! Bid/Ask spread widened to 6 ticks.",
+          "[08:26:01] DAVID: VETO! Spread > 3 ticks and book depth dropped 78%. Suicidal slippage environment.",
+          "[08:26:02] VICTOR (BOSS): Hard Veto from CLARA and DAVID. Rejecting all Stage 2 setups. Commanding RYAN: STAY FLAT.",
+          "[08:26:02] RYAN: Confirmed 0 open positions and 0 working orders on Tradovate. Waiting 15m post-CPI for structure."
+        ]
+      },
+      bull_trap: {
+        title: "Session High Bull Trap (MAX + SAM SHORT REVERSAL)",
+        price: "$2,754.20",
+        regime: "RANGE EXTREME REVERSAL",
+        dom: "3.4x ASK ICEBERG WALL",
+        news: "CLEAR (NO RED FOLDER)",
+        statuses: {
+          clara: "CLEAR (GREEN)",
+          arthur: "OVEREXTENDED AT HTF RESISTANCE",
+          marcus: "BREAKOUT FAILED AT $2,755",
+          nina: "EQH SWEPT + BEARISH FVG",
+          max: "SIGNAL: BULL TRAP SHORT!",
+          leo: "NY MANIPULATION HIGH",
+          kai: "1.272 EXT EXHAUSTION",
+          elena: "SHOOTING STAR + 1M MSS DOWN",
+          jack: "BUYING CLIMAX EXHAUSTION",
+          sam: "3.4x ASK WALL ABSORBING BUYERS",
+          omar: "TRAPPED LONG DELTA (+890 STUCK)",
+          sarah: "APPROVED (2/3 TRADES)",
+          david: "PASSED (CLEAN DOWNSIDE AIR)",
+          ethan: "1 MGC SHORT (2.85 R:R)",
+          victor: "CONSENSUS 89% -> GO SHORT",
+          ryan: "SHORT @ 2754.20 | TRAILING"
+        },
+        tape: [
+          "[09:45:10] MARCUS: Price poked above Asian Session High ($2,755.00), testing breakout...",
+          "[09:45:12] SAM (MBP-10): WAIT! Massive 340-contract passive Ask iceberg wall sitting at $2,755.20 absorbing all buyers!",
+          "[09:45:14] OMAR (CVD): +890 Market Buy contracts just slammed into $2,755.20 and price failed to tick higher! Buyers are trapped!",
+          "[09:46:00] MAX (TRAP TRADER): Bull Trap confirmed! Candle closed back below $2,754.50, trapping late breakout longs.",
+          "[09:46:01] ELENA & NINA: Bearish Shooting Star + 1M MSS Down with Bearish FVG left behind.",
+          "[09:46:02] VICTOR: MARCUS breakout aborted; MAX + SAM + OMAR Short Trap consensus at 89%. Commanding RYAN: FIRE SHORT.",
+          "[09:46:02] RYAN: Short filled @ $2,754.20 on Tradovate. Targeting trapped long stop-losses below $2,744.00!"
+        ]
+      }
+    };
+
+    let selectedAgentId = "victor";
+    let currentScenario = "ny_sweep";
+    let relayInterval = null;
+
+    // =========================================================================
+    // 4. RENDER PIPELINE CARDS & INSPECTOR
+    // =========================================================================
+    function getBadgeClasses(color) {
+      const map = {
+        indigo: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30",
+        sky: "bg-sky-500/15 text-sky-300 border-sky-500/30",
+        emerald: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+        purple: "bg-purple-500/15 text-purple-300 border-purple-500/30",
+        amber: "bg-amber-500/15 text-amber-300 border-amber-500/30"
+      };
+      return map[color] || map.sky;
+    }
+
+    function renderStageCards() {
+      for (let s = 1; s <= 5; s++) {
+        const container = document.getElementById(`stage${s}Grid`);
+        const stageAgents = AGENTS.filter(a => a.stage === s);
+        container.innerHTML = stageAgents.map(a => {
+          const scenStatus = SCENARIOS[currentScenario].statuses[a.id] || a.status;
+          const isVeto = scenStatus.includes("VETO") || scenStatus.includes("LOCKED") || scenStatus.includes("DANGER");
+          const statusColor = isVeto
+            ? "text-rose-400 bg-rose-500/15 border-rose-500/40"
+            : "text-emerald-300 bg-emerald-500/15 border-emerald-500/30";
+
+          return `
+            <div id="card-${a.id}" onclick="selectAgent('${a.id}')" class="agent-card rounded-xl bg-slate-900/90 border border-slate-700/80 p-3.5 flex flex-col justify-between">
+              <div>
+                <div class="flex items-center justify-between gap-2 mb-1.5">
+                  <div class="flex items-center gap-2">
+                    <span class="px-2 py-0.5 text-xs font-bold rounded ${getBadgeClasses(a.badgeColor)} border">#${a.num}</span>
+                    <span class="font-bold text-sm text-white tracking-wide">${a.name}</span>
+                  </div>
+                  <span class="text-xs font-mono text-slate-400">${a.codename}</span>
+                </div>
+                <p class="text-xs font-medium text-slate-300 mb-2">${a.role}</p>
+              </div>
+
+              <div class="space-y-2 pt-2 border-t border-slate-800/90">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="text-slate-400 font-mono">${a.tf}</span>
+                  <span class="text-slate-400">In: <strong class="text-sky-300">${a.inputs.length}</strong> &bull; Out: <strong class="text-emerald-300">${a.outputs.length}</strong></span>
+                </div>
+                <div class="px-2.5 py-1 rounded border text-xs font-mono font-semibold truncate ${statusColor}">
+                  ${scenStatus}
+                </div>
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+      highlightConnections(selectedAgentId);
+    }
+
+    function selectAgent(agentId) {
+      selectedAgentId = agentId;
+      const agent = AGENTS.find(a => a.id === agentId);
+      if (!agent) return;
+
+      document.getElementById("inspNumber").textContent = `#${agent.num}`;
+      document.getElementById("inspName").textContent = agent.name;
+      document.getElementById("inspCodename").textContent = agent.codename;
+      document.getElementById("inspRole").textContent = agent.role;
+      document.getElementById("inspTimeframe").textContent = agent.tf;
+      document.getElementById("inspDesc").textContent = agent.desc;
+      document.getElementById("inspFile").textContent = agent.file;
+      document.getElementById("inspPayload").textContent = JSON.stringify(agent.payload, null, 2);
+
+      // Render Inputs
+      document.getElementById("inspInputs").innerHTML = agent.inputs.map(inp => `
+        <div class="bg-slate-900/90 border border-sky-500/30 rounded-lg p-2.5 text-xs">
+          <div class="flex items-center justify-between font-semibold text-sky-300">
+            <span>&larr; From: ${inp.label}</span>
+          </div>
+          <div class="text-slate-300 font-mono mt-1">Keys: <span class="text-amber-300">${inp.keys}</span></div>
+        </div>
+      `).join("");
+
+      // Render Outputs
+      document.getElementById("inspOutputs").innerHTML = agent.outputs.map(out => `
+        <div class="bg-slate-900/90 border border-emerald-500/30 rounded-lg p-2.5 text-xs">
+          <div class="flex items-center justify-between font-semibold text-emerald-300">
+            <span>&rarr; To: ${out.name || out.label}</span>
+          </div>
+          <div class="text-slate-300 font-mono mt-1">Shares: <span class="text-amber-300">${out.keys}</span></div>
+        </div>
+      `).join("");
+
+      highlightConnections(agentId);
+    }
+
+    function highlightConnections(agentId) {
+      const agent = AGENTS.find(a => a.id === agentId);
+      if (!agent) return;
+
+      const upstreamIds = new Set(agent.inputs.map(i => i.from));
+      const downstreamIds = new Set(agent.outputs.map(o => o.to));
+
+      // Also check any agent that lists `agentId` in its outputs or inputs
+      AGENTS.forEach(other => {
+        if (other.outputs.some(o => o.to === agentId)) upstreamIds.add(other.id);
+        if (other.inputs.some(i => i.from === agentId)) downstreamIds.add(other.id);
+      });
+
+      AGENTS.forEach(a => {
+        const el = document.getElementById(`card-${a.id}`);
+        if (!el) return;
+        el.classList.remove("agent-selected", "agent-source", "agent-target", "agent-dimmed");
+
+        if (a.id === agentId) {
+          el.classList.add("agent-selected");
+        } else if (upstreamIds.has(a.id)) {
+          el.classList.add("agent-source");
+        } else if (downstreamIds.has(a.id)) {
+          el.classList.add("agent-target");
+        } else {
+          el.classList.add("agent-dimmed");
+        }
+      });
+    }
+
+    function clearSelection() {
+      if (relayInterval) {
+        clearInterval(relayInterval);
+        relayInterval = null;
+      }
+      AGENTS.forEach(a => {
+        const el = document.getElementById(`card-${a.id}`);
+        if (el) el.classList.remove("agent-selected", "agent-source", "agent-target", "agent-dimmed", "agent-active-pulse");
+      });
+    }
+
+    // =========================================================================
+    // 5. SCENARIO SWITCHING & STEP-BY-STEP RELAY ANIMATION
+    // =========================================================================
+    function loadScenario(scenKey) {
+      currentScenario = scenKey;
+      const scen = SCENARIOS[scenKey];
+
+      // Update Header
+      document.getElementById("livePrice").textContent = scen.price;
+      document.getElementById("headerRegime").textContent = scen.regime;
+      document.getElementById("headerDom").textContent = scen.dom;
+      document.getElementById("headerNews").textContent = scen.news;
+      document.getElementById("scenarioBadge").textContent = scen.title;
+
+      // Update Scenario Buttons
+      document.querySelectorAll(".scen-btn").forEach(btn => {
+        btn.className = "scen-btn px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800/80 text-slate-300 border border-slate-700 hover:border-slate-500 transition";
+      });
+      const activeBtn = document.getElementById(`scen-${scenKey}`);
+      if (activeBtn) {
+        activeBtn.className = "scen-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 transition";
+      }
+
+      // Render Tape
+      const tapeEl = document.getElementById("deskTape");
+      tapeEl.innerHTML = scen.tape.map(line => {
+        const isVeto = line.includes("VETO") || line.includes("ALERT") || line.includes("WAIT");
+        const isExec = line.includes("VICTOR") || line.includes("RYAN");
+        const color = isVeto ? "text-rose-400" : isExec ? "text-amber-300 font-semibold" : "text-slate-300";
+        return `<div class="${color} leading-relaxed border-b border-slate-900 pb-1">${line}</div>`;
+      }).join("");
+
+      renderStageCards();
+      selectAgent(selectedAgentId);
+    }
+
+    function runRelayAnimation() {
+      if (relayInterval) clearInterval(relayInterval);
+      switchTab("network");
+
+      const sequence = ["clara", "arthur", "leo", "nina", "kai", "max", "elena", "sam", "omar", "jack", "sarah", "david", "ethan", "victor", "ryan"];
+      let idx = 0;
+
+      selectAgent(sequence[0]);
+      relayInterval = setInterval(() => {
+        idx++;
+        if (idx >= sequence.length) {
+          clearInterval(relayInterval);
+          relayInterval = null;
+          return;
+        }
+        selectAgent(sequence[idx]);
+        const card = document.getElementById(`card-${sequence[idx]}`);
+        if (card) {
+          card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+      }, 950);
+    }
+
+    // =========================================================================
+    // 6. MATRIX TABLE & TAB SWITCHING
+    // =========================================================================
+    function renderMatrixTable() {
+      const q = (document.getElementById("matrixSearch")?.value || "").toLowerCase();
+      const tbody = document.getElementById("matrixTableBody");
+      const filtered = DATA_FLOWS.filter(row =>
+        row.stage.toLowerCase().includes(q) ||
+        row.from.toLowerCase().includes(q) ||
+        row.to.toLowerCase().includes(q) ||
+        row.keys.toLowerCase().includes(q) ||
+        row.desc.toLowerCase().includes(q)
+      );
+
+      tbody.innerHTML = filtered.map(row => `
+        <tr class="hover:bg-slate-900/70 transition">
+          <td class="py-3 px-4 font-mono text-indigo-300 whitespace-nowrap">${row.stage}</td>
+          <td class="py-3 px-4 font-bold text-sky-300 whitespace-nowrap">${row.from}</td>
+          <td class="py-3 px-4 font-bold text-emerald-300 whitespace-nowrap">${row.to}</td>
+          <td class="py-3 px-4 font-mono text-amber-300">${row.keys}</td>
+          <td class="py-3 px-4 text-slate-300 leading-relaxed">${row.desc}</td>
+        </tr>
+      `).join("");
+    }
+
+    function switchTab(tabName) {
+      ["network", "matrix", "lifecycle"].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.toggle("hidden", t !== tabName);
+        const btn = document.getElementById(`tabBtn-${t}`);
+        if (t === tabName) {
+          btn.className = "px-3 py-1.5 rounded-md bg-amber-500 text-slate-950 font-semibold transition";
+        } else {
+          btn.className = "px-3 py-1.5 rounded-md text-slate-300 hover:text-white transition";
+        }
+      });
+    }
+
+    // Initialize on load
+    window.addEventListener("DOMContentLoaded", () => {
+      loadScenario("ny_sweep");
+      renderMatrixTable();
+      selectAgent("victor");
+    });
+  </script>
+</body>
+</html>
