@@ -158,6 +158,35 @@ class DeltaExchangeClient:
             print(f"[DELTA API] Balance check fallback: {e}")
         return 100.00
 
+    def fetch_l2_orderbook(self, symbol: str = "XAUTUSD", depth: int = 20) -> Dict[str, Any]:
+        """Fetches live L2 Depth of Market directly from Delta Exchange (in-memory only)."""
+        path = f"/v2/l2orderbook/{symbol}"
+        url = self.base_url + path
+        req = urllib.request.Request(url, headers={"User-Agent": "DeltaGoldSyndicate/2.0", "Accept": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=3) as r:
+                res = json.loads(r.read().decode("utf-8"))
+                if res.get("success") and "result" in res:
+                    book = res["result"]
+                    raw_bids = book.get("buy", [])[:depth]
+                    raw_asks = book.get("sell", [])[:depth]
+                    bids = []
+                    for b in raw_bids:
+                        if isinstance(b, dict):
+                            bids.append([float(b.get("price", 0)), float(b.get("size", 0))])
+                        elif isinstance(b, (list, tuple)) and len(b) >= 2:
+                            bids.append([float(b[0]), float(b[1])])
+                    asks = []
+                    for a in raw_asks:
+                        if isinstance(a, dict):
+                            asks.append([float(a.get("price", 0)), float(a.get("size", 0))])
+                        elif isinstance(a, (list, tuple)) and len(a) >= 2:
+                            asks.append([float(a[0]), float(a[1])])
+                    return {"success": True, "bids": bids, "asks": asks}
+        except Exception:
+            pass
+        return {"success": False, "bids": [], "asks": []}
+
     def place_order(self, direction: str, delta_lots: int, limit_price: float, sl_price: float) -> Dict[str, Any]:
         """Places 50x order in Delta Exchange contracts (lots)."""
         side = "buy" if direction == "LONG" else "sell"
@@ -489,6 +518,15 @@ class StrategyController:
             if ((uw >= 1.15) or bear_disp): v_short += 1
             agents_fired.append("POD_MAYA_LIAM")
 
+        # 7. SAM (Agent 9: 1-Second Live L2 Orderbook Imbalance Confirmation)
+        l2_ratio = MARKET.l2_depth.get("ratio", 1.0)
+        if l2_ratio >= 1.35 and v_long >= 2:
+            v_long += 1
+            agents_fired.append("9:SAM_L2_IMBALANCE")
+        elif l2_ratio <= 0.74 and v_short >= 2:
+            v_short += 1
+            agents_fired.append("9:SAM_L2_IMBALANCE")
+
         # 15m Structural Sniper (CHAMP_4)
         is_champ4_long = is_15m and (c > ema50) and (lw >= 1.05 or bull_disp) and (fib60_l >= 0.50)
         is_champ4_short = is_15m and (c < ema50) and (uw >= 1.05 or bear_disp) and (fib60_s >= 0.50)
@@ -695,9 +733,18 @@ def fetch_initial_candles():
         with urllib.request.urlopen(req, timeout=10) as r:
             res = json.loads(r.read().decode("utf-8"))
             candles = res.get("result", [])
-            candles.reverse()  # chronological order
             for c in candles:
-                if isinstance(c, list) and len(c) >= 6:
+                if isinstance(c, dict):
+                    bar = {
+                        "time": c.get("time", c.get("timestamp", 0)),
+                        "open": float(c.get("open", 0)),
+                        "high": float(c.get("high", 0)),
+                        "low": float(c.get("low", 0)),
+                        "close": float(c.get("close", 0)),
+                        "volume": float(c.get("volume", 1.0))
+                    }
+                    MARKET.append_bar(bar)
+                elif isinstance(c, (list, tuple)) and len(c) >= 6:
                     bar = {
                         "time": c[0],
                         "open": float(c[1]),
@@ -711,37 +758,70 @@ def fetch_initial_candles():
     except Exception as e:
         print(f"[CANDLE PRIMER] Initial candle fetch notice: {e}")
 
-def poll_live_candles():
-    """Continuously streams Delta Exchange India 1m closed bars every 8 seconds."""
-    last_processed_ts = 0
+def stream_l2_every_second():
+    """
+    Continuous 1-Second High-Frequency L2 Engine:
+    - Streams live Level-2 Orderbook (DOM) from Delta Exchange every 1.0s.
+    - Zero Disk Storage: 100% in-memory calculation (0 MB disk usage).
+    - Real-time sub-second position manager (SL, Stall Lock, Breakeven, Chandelier Trail).
+    - Aggregates 1m bars into RAM and triggers consensus signals when new minute closes.
+    """
     fetch_initial_candles()
+    cur_min = -1
+    cur_bar = None
+    tick_count = 0
+
     while True:
         try:
-            now_ts = int(time.time())
-            start_ts = now_ts - (10 * 60)
-            url = f"{CONFIG['DELTA_BASE_URL']}/v2/history/candles?symbol={CONFIG['SYMBOL']}&resolution=1m&start={start_ts}&end={now_ts}"
-            req = urllib.request.Request(url, headers={"User-Agent": "DeltaGoldSyndicate/2.0", "Accept": "application/json"})
-            with urllib.request.urlopen(req, timeout=8) as r:
-                res = json.loads(r.read().decode("utf-8"))
-                candles = res.get("result", [])
-                if len(candles) >= 2:
-                    closed_candle = candles[1]
-                    if isinstance(closed_candle, list) and len(closed_candle) >= 6:
-                        c_ts = int(closed_candle[0])
-                        if c_ts > last_processed_ts:
-                            last_processed_ts = c_ts
-                            bar = {
-                                "time": c_ts,
-                                "open": float(closed_candle[1]),
-                                "high": float(closed_candle[2]),
-                                "low": float(closed_candle[3]),
-                                "close": float(closed_candle[4]),
-                                "volume": float(closed_candle[5])
-                            }
-                            STRATEGY.on_bar_close(bar)
+            now_dt = datetime.now(timezone.utc)
+            m_now = now_dt.minute
+
+            # 1. Fetch live L2 Orderbook every second
+            l2 = DELTA.fetch_l2_orderbook(CONFIG["SYMBOL"], depth=20)
+            if l2.get("success") and l2["bids"] and l2["asks"]:
+                bids = l2["bids"]
+                asks = l2["asks"]
+                MARKET.update_l2(bids, asks)
+
+                best_bid = float(bids[0][0])
+                best_ask = float(asks[0][0])
+                mid_px = round((best_bid + best_ask) / 2.0, 2)
+                MARKET.last_price = mid_px
+                MARKET.last_mark = mid_px
+
+                # 2. Fast 1-Second In-Trade Management (Immediate Action)
+                if MARKET.active_position is not None:
+                    STRATEGY.manage_active_trade(best_ask, best_bid, mid_px)
+
+                # 3. Build live 1m candle bar in RAM (Zero Disk Usage)
+                if cur_bar is None or m_now != cur_min:
+                    if cur_bar is not None:
+                        # Minute closed -> Send completed bar to strategy controller
+                        STRATEGY.on_bar_close(cur_bar)
+                    cur_min = m_now
+                    cur_bar = {
+                        "time": int(now_dt.timestamp()),
+                        "open": mid_px,
+                        "high": mid_px,
+                        "low": mid_px,
+                        "close": mid_px,
+                        "volume": sum(b[1] for b in bids[:5]) + sum(a[1] for a in asks[:5])
+                    }
+                else:
+                    cur_bar["high"] = max(cur_bar["high"], mid_px)
+                    cur_bar["low"] = min(cur_bar["low"], mid_px)
+                    cur_bar["close"] = mid_px
+                    cur_bar["volume"] += sum(b[1] for b in bids[:5])
+
+                tick_count += 1
+                if tick_count % 15 == 0:
+                    pos_str = f"ACTIVE ({MARKET.active_position['direction']})" if MARKET.active_position else "FLAT (Scanning)"
+                    print(f"[LIVE 1s L2 FEED] XAUTUSD: ${mid_px:.2f} | Spread: ${MARKET.l2_depth['spread']:.2f} | L2 Imbalance: {MARKET.l2_depth['ratio']:.2f} | Position: {pos_str} (RAM: 0 MB Disk)")
+
         except Exception:
             pass
-        time.sleep(8)
+
+        time.sleep(1.0)
 
 def start_server():
     server = HTTPServer(("0.0.0.0", CONFIG["PORT"]), LiveDashboardHandler)
@@ -752,10 +832,11 @@ if __name__ == "__main__":
     t_srv = threading.Thread(target=start_server, daemon=True)
     t_srv.start()
     
-    t_feed = threading.Thread(target=poll_live_candles, daemon=True)
-    t_feed.start()
+    t_l2 = threading.Thread(target=stream_l2_every_second, daemon=True)
+    t_l2.start()
     
     print(f"=== Delta Exchange India 50x Bot Running on Port {CONFIG['PORT']} ===")
     print(f"=== Strategy: 👑 #1 Merged Super-Champion (>=4/6 + 15m Sniper) ===")
+    print(f"=== Frequency: 1-Second Live L2 Orderbook Streaming (0 MB Disk Usage) ===")
     while True:
         time.sleep(1)
