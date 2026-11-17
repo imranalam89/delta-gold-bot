@@ -24,7 +24,7 @@
 
 ---
 
-## 2. Fast Step-by-Step Deployment Commands
+## 2. Fast 1-Step Deployment via GitHub (Automated)
 
 ### Step 1: Connect to your Hostinger VPS via SSH
 Open your terminal (PowerShell or Bash) and run:
@@ -34,56 +34,32 @@ ssh root@62.72.31.29
 
 ---
 
-### Step 2: Create the Dedicated Directory
+### Step 2: Clone from GitHub & Run Automated Setup
+Just like your previous `agent-brain` setup, you don't need to type or bash any manual `.env` commands!
+
 ```bash
-mkdir -p /var/www/delta_gold_bot
+# 1. Clone the repository into its dedicated directory
+git clone https://github.com/imranalam89/delta-gold-bot.git /var/www/delta_gold_bot
 cd /var/www/delta_gold_bot
+
+# 2. Run the 1-step automated setup script
+bash setup_hostinger.sh
 ```
+
+`setup_hostinger.sh` automatically:
+- Installs Python dependencies if missing
+- Copies `.env.example` to `.env` (no manual bash typing needed)
+- Configures and starts `delta_gold_bot.service` (Port 5055)
+- Configures firewall rules for port 5055
 
 ---
 
-### Step 3: Upload the Bot Code & Live Journal from Windows
-From your local Windows PowerShell terminal:
-```powershell
-scp "c:\Users\USER\OneDrive\Desktop\Agents Team\hostinger_delta_gold_live.py" root@62.72.31.29:/var/www/delta_gold_bot/
-scp "c:\Users\USER\OneDrive\Desktop\Agents Team\live_journal.html" root@62.72.31.29:/var/www/delta_gold_bot/
-scp "c:\Users\USER\OneDrive\Desktop\Agents Team\.env" root@62.72.31.29:/var/www/delta_gold_bot/
-scp "c:\Users\USER\OneDrive\Desktop\Agents Team\delta_gold_bot.service" root@62.72.31.29:/etc/systemd/system/
-```
-
----
-
-### Step 4: Configure Credentials (`.env`)
-On the VPS inside `/var/www/delta_gold_bot`:
+### Step 3: Routine Updates via GitHub
+Whenever you push new updates from your Windows machine:
 ```bash
-cat << 'EOF' > /var/www/delta_gold_bot/.env
-DELTA_API_KEY="YOUR_DELTA_API_KEY"
-DELTA_API_SECRET="YOUR_DELTA_API_SECRET"
-DELTA_ACCOUNT_ID="74634658"
-PORT=5055
-LEVERAGE=50
-FIXED_RISK_USD=5.0
-MAX_HOLD_MINS=180
-EOF
-```
-*(Replace `YOUR_DELTA_API_KEY` and `YOUR_DELTA_API_SECRET` with your real Delta Exchange India keys)*.
-
----
-
-### Step 5: Enable Firewall for Port 5055
-```bash
-sudo ufw allow 5055/tcp
-sudo ufw reload
-```
-
----
-
-### Step 6: Start the Background Service
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable delta_gold_bot
-sudo systemctl restart delta_gold_bot
-sudo systemctl status delta_gold_bot
+cd /var/www/delta_gold_bot
+git pull origin main
+systemctl restart delta_gold_bot
 ```
 
 ---

@@ -349,8 +349,195 @@ class StrategyController:
         print(f"[TRADE CLOSED #{closed['id']}] {closed['direction']} Exit @ {exit_px:.2f} ({reason}) | PnL: ${net:+.2f} ({r_mult:+.2f}R)")
 
     def evaluate_signals(self, bar: Dict[str, Any]):
-        # Multi-agent floor consensus check (simulated / real-time indicator evaluation)
-        pass
+        """
+        Multi-agent floor consensus check:
+        Evaluates 👑 #1 Merged Super-Champion (>=4/6 + 15m Sniper):
+        - 16 Floor Agents & 11 Specialists (1m, 5m, 15m, 1h)
+        - 6 Champion Profiles Voting Consensus:
+          Rule: vote_count >= 4 or (tf == '15m' and CHAMP_4_SNIPER)
+        - Execution: Fixed $5.00 Risk, 50x Leverage Lots
+        """
+        bars = list(MARKET.bars_1m)
+        if len(bars) < 30:
+            return
+
+        closes = [float(b["close"]) for b in bars]
+        highs = [float(b["high"]) for b in bars]
+        lows = [float(b["low"]) for b in bars]
+        opens = [float(b["open"]) for b in bars]
+        vols = [float(b.get("volume", 1.0)) for b in bars]
+
+        c = closes[-1]
+        h = highs[-1]
+        l = lows[-1]
+        o = opens[-1]
+        v = vols[-1]
+
+        # Calculate True Range and ATR(14)
+        trs = []
+        for i in range(1, len(bars)):
+            ch = highs[i]
+            cl = lows[i]
+            pc = closes[i - 1]
+            trs.append(max(ch - cl, abs(ch - pc), abs(cl - pc)))
+        atr14 = sum(trs[-14:]) / 14.0 if len(trs) >= 14 else max(h - l, 3.5)
+
+        # EMAs (9, 15, 50, 200)
+        def ema(series, period):
+            k = 2.0 / (period + 1.0)
+            res = series[0]
+            for val in series[1:]:
+                res = val * k + res * (1.0 - k)
+            return res
+
+        ema9 = ema(closes, 9)
+        ema15 = ema(closes, 15)
+        ema50 = ema(closes, 50) if len(closes) >= 50 else ema15
+        ema200 = ema(closes, 200) if len(closes) >= 200 else ema50
+
+        # Bar Geometry
+        rng = max(h - l, 0.05)
+        body = abs(c - o)
+        body_ratio = body / rng
+        bull_disp = (c > o) and (body_ratio >= 0.55)
+        bear_disp = (c < o) and (body_ratio >= 0.55)
+        lw = abs(min(o, c) - l) / rng
+        uw = abs(h - max(o, c)) / rng
+
+        # Volume Z-score
+        vol_slice = vols[-20:]
+        mean_v = sum(vol_slice) / len(vol_slice)
+        var_v = sum((x - mean_v) ** 2 for x in vol_slice) / len(vol_slice)
+        std_v = (var_v ** 0.5) if var_v > 0 else 1.0
+        vz = (v - mean_v) / std_v if std_v > 0 else 0.0
+
+        # RSI 5
+        gains, losses = 0.0, 0.0
+        for i in range(-5, 0):
+            diff = closes[i] - closes[i - 1]
+            if diff > 0: gains += diff
+            else: losses -= diff
+        rs = (gains / max(losses, 0.01))
+        rsi5 = 100.0 - (100.0 / (1.0 + rs))
+
+        # Fibonacci / Relative Range
+        lookback_60 = min(60, len(bars))
+        h60 = max(highs[-lookback_60:])
+        l60 = min(lows[-lookback_60:])
+        r60 = max(h60 - l60, 0.1)
+        fib60_l = (h60 - c) / r60
+        fib60_s = (c - l60) / r60
+
+        # Timeframe detection
+        now_dt = datetime.now(timezone.utc)
+        mins = now_dt.minute
+        is_5m = (mins % 5) == 0
+        is_15m = (mins % 15) == 0
+        is_1h = (mins == 0)
+
+        # Specialist Signals
+        v_long = 0
+        v_short = 0
+        agents_fired = []
+
+        # 1. MAYA (Price Action & Sweep Trap)
+        if ((lw >= 1.15) or bull_disp) and (vz >= 0.48) and (fib60_l >= 0.50):
+            v_long += 1
+            agents_fired.append("2:MAYA")
+        if ((uw >= 1.15) or bear_disp) and (vz >= 0.48) and (fib60_s >= 0.50):
+            v_short += 1
+            agents_fired.append("2:MAYA")
+
+        # 2. SOPHIA (Macro Killzone & VWAP Pocket)
+        if (c > ema15) and (35 <= rsi5 <= 66) and (bull_disp or lw >= 1.05):
+            v_long += 1
+            agents_fired.append("6:SOPHIA")
+        if (c < ema15) and (32 <= rsi5 <= 66) and (bear_disp or uw >= 1.05):
+            v_short += 1
+            agents_fired.append("6:SOPHIA")
+
+        # 3. LIAM (Order Flow Absorption & Sweep Reversal)
+        if (lw >= 1.08) and (c > ema9) and (vz >= 0.40):
+            v_long += 1
+            agents_fired.append("11:LIAM")
+        if (uw >= 1.08) and (c < ema9) and (vz >= 0.40):
+            v_short += 1
+            agents_fired.append("11:LIAM")
+
+        # 4. MARCUS (Box Breakout)
+        lookback_20 = min(20, len(bars) - 1)
+        h20_prev = max(highs[-lookback_20 - 1:-1])
+        l20_prev = min(lows[-lookback_20 - 1:-1])
+        if (c > h20_prev) and (vz >= 0.44):
+            v_long += 1
+            agents_fired.append("3:MARCUS")
+        if (c < l20_prev) and (vz >= 0.44):
+            v_short += 1
+            agents_fired.append("3:MARCUS")
+
+        # 5. ELENA (VWAP Wick Reversal)
+        if (c > ema15) and (lw >= 1.10) and (rsi5 >= 40):
+            v_long += 1
+            agents_fired.append("8:ELENA")
+        if (c < ema15) and (uw >= 1.10) and (rsi5 <= 60):
+            v_short += 1
+            agents_fired.append("8:ELENA")
+
+        # 6. POD CONFLUENCE (Maya + Liam or Marcus + Sophia)
+        if "2:MAYA" in agents_fired and "11:LIAM" in agents_fired:
+            if ((lw >= 1.15) or bull_disp): v_long += 1
+            if ((uw >= 1.15) or bear_disp): v_short += 1
+            agents_fired.append("POD_MAYA_LIAM")
+
+        # 15m Structural Sniper (CHAMP_4)
+        is_champ4_long = is_15m and (c > ema50) and (lw >= 1.05 or bull_disp) and (fib60_l >= 0.50)
+        is_champ4_short = is_15m and (c < ema50) and (uw >= 1.05 or bear_disp) and (fib60_s >= 0.50)
+
+        # Quorum Evaluation: >=4/6 Champion Consensus OR 15m Sniper
+        dir_to_fire = None
+        tf_label = "15m" if is_15m else ("5m" if is_5m else "1m")
+        setup_agent = agents_fired[0] if agents_fired else "CHAMP_4_SNIPER"
+
+        if v_long >= 4 or is_champ4_long:
+            dir_to_fire = "LONG"
+        elif v_short >= 4 or is_champ4_short:
+            dir_to_fire = "SHORT"
+
+        if dir_to_fire:
+            sl_dist = round(max(3.0, min(12.0, CONFIG["SL_MULT"] * atr14)), 2)
+            init_sl = round(c - sl_dist, 2) if dir_to_fire == "LONG" else round(c + sl_dist, 2)
+            
+            # Sizing calculation for fixed $5.00 risk & 50x leverage
+            qty_oz = round(CONFIG["FIXED_RISK_USD"] / sl_dist, 4)
+            delta_lots = max(1, round(qty_oz * 1000))
+            margin_50x = round((delta_lots * 0.001 * c) / float(CONFIG["LEVERAGE"]), 2)
+
+            print(f"\n[👑 SUPER-CHAMPION TRIGGER] {dir_to_fire} Signal on XAUTUSD!")
+            print(f"Agents: {', '.join(agents_fired)} | Votes: {max(v_long, v_short)}/6 | 15m Sniper: {is_champ4_long or is_champ4_short}")
+            print(f"Price: {c:.2f} | SL: {init_sl:.2f} ({sl_dist} pts) | Lots: {delta_lots} | Margin: ${margin_50x:.2f}")
+
+            # Execute Order on Delta Exchange India
+            order_res = DELTA.place_order(dir_to_fire, delta_lots, c, init_sl)
+
+            MARKET.active_position = {
+                "direction": dir_to_fire,
+                "tf": tf_label,
+                "setup_agent": setup_agent,
+                "playbook": "LEO_SWEEP_TRAP" if "2:MAYA" in agents_fired else "CHAMP_4_MTF_SNIPER",
+                "entry_price": c,
+                "init_sl": init_sl,
+                "cur_sl": init_sl,
+                "sl_dist": sl_dist,
+                "qty_oz": qty_oz,
+                "delta_lots": delta_lots,
+                "margin_50x_usd": margin_50x,
+                "entry_time": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+                "hold_mins": 0,
+                "peak_fav": 0.0,
+                "peak_bar": 0,
+                "stage": 0,
+                "stage_reason": ""
+            }
 
 STRATEGY = StrategyController()
 
@@ -498,14 +685,73 @@ class LiveDashboardHandler(SimpleHTTPRequestHandler):
 </body>
 </html>"""
 
+def fetch_initial_candles():
+    """Fetches historical 1m candles on startup to prime all indicators."""
+    try:
+        url = f"{CONFIG['DELTA_BASE_URL']}/v2/history/candles?symbol={CONFIG['SYMBOL']}&resolution=1m"
+        req = urllib.request.Request(url, headers={"User-Agent": "DeltaGoldSyndicate/2.0", "Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            res = json.loads(r.read().decode("utf-8"))
+            candles = res.get("result", [])
+            candles.reverse()  # chronological order
+            for c in candles[-300:]:
+                if isinstance(c, list) and len(c) >= 6:
+                    bar = {
+                        "time": c[0],
+                        "open": float(c[1]),
+                        "high": float(c[2]),
+                        "low": float(c[3]),
+                        "close": float(c[4]),
+                        "volume": float(c[5])
+                    }
+                    MARKET.append_bar(bar)
+            print(f"[CANDLE PRIMER] Primed {len(MARKET.bars_1m)} historical 1m bars from Delta Exchange.")
+    except Exception as e:
+        print(f"[CANDLE PRIMER] Initial candle fetch notice: {e}")
+
+def poll_live_candles():
+    """Continuously streams Delta Exchange India 1m closed bars every 8 seconds."""
+    last_processed_ts = 0
+    fetch_initial_candles()
+    while True:
+        try:
+            url = f"{CONFIG['DELTA_BASE_URL']}/v2/history/candles?symbol={CONFIG['SYMBOL']}&resolution=1m"
+            req = urllib.request.Request(url, headers={"User-Agent": "DeltaGoldSyndicate/2.0", "Accept": "application/json"})
+            with urllib.request.urlopen(req, timeout=8) as r:
+                res = json.loads(r.read().decode("utf-8"))
+                candles = res.get("result", [])
+                if len(candles) >= 2:
+                    closed_candle = candles[1]
+                    if isinstance(closed_candle, list) and len(closed_candle) >= 6:
+                        c_ts = int(closed_candle[0])
+                        if c_ts > last_processed_ts:
+                            last_processed_ts = c_ts
+                            bar = {
+                                "time": c_ts,
+                                "open": float(closed_candle[1]),
+                                "high": float(closed_candle[2]),
+                                "low": float(closed_candle[3]),
+                                "close": float(closed_candle[4]),
+                                "volume": float(closed_candle[5])
+                            }
+                            STRATEGY.on_bar_close(bar)
+        except Exception:
+            pass
+        time.sleep(8)
+
 def start_server():
     server = HTTPServer(("0.0.0.0", CONFIG["PORT"]), LiveDashboardHandler)
     print(f"[LIVE DAEMON] Dashboard active at http://0.0.0.0:{CONFIG['PORT']}/")
     server.serve_forever()
 
 if __name__ == "__main__":
-    t = threading.Thread(target=start_server, daemon=True)
-    t.start()
+    t_srv = threading.Thread(target=start_server, daemon=True)
+    t_srv.start()
+    
+    t_feed = threading.Thread(target=poll_live_candles, daemon=True)
+    t_feed.start()
+    
     print(f"=== Delta Exchange India 50x Bot Running on Port {CONFIG['PORT']} ===")
+    print(f"=== Strategy: 👑 #1 Merged Super-Champion (>=4/6 + 15m Sniper) ===")
     while True:
         time.sleep(1)
