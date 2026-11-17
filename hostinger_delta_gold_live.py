@@ -688,13 +688,15 @@ class LiveDashboardHandler(SimpleHTTPRequestHandler):
 def fetch_initial_candles():
     """Fetches historical 1m candles on startup to prime all indicators."""
     try:
-        url = f"{CONFIG['DELTA_BASE_URL']}/v2/history/candles?symbol={CONFIG['SYMBOL']}&resolution=1m"
+        now_ts = int(time.time())
+        start_ts = now_ts - (300 * 60)
+        url = f"{CONFIG['DELTA_BASE_URL']}/v2/history/candles?symbol={CONFIG['SYMBOL']}&resolution=1m&start={start_ts}&end={now_ts}"
         req = urllib.request.Request(url, headers={"User-Agent": "DeltaGoldSyndicate/2.0", "Accept": "application/json"})
         with urllib.request.urlopen(req, timeout=10) as r:
             res = json.loads(r.read().decode("utf-8"))
             candles = res.get("result", [])
             candles.reverse()  # chronological order
-            for c in candles[-300:]:
+            for c in candles:
                 if isinstance(c, list) and len(c) >= 6:
                     bar = {
                         "time": c[0],
@@ -705,7 +707,7 @@ def fetch_initial_candles():
                         "volume": float(c[5])
                     }
                     MARKET.append_bar(bar)
-            print(f"[CANDLE PRIMER] Primed {len(MARKET.bars_1m)} historical 1m bars from Delta Exchange.")
+            print(f"[CANDLE PRIMER] Successfully primed {len(MARKET.bars_1m)} historical 1m bars from Delta Exchange.")
     except Exception as e:
         print(f"[CANDLE PRIMER] Initial candle fetch notice: {e}")
 
@@ -715,7 +717,9 @@ def poll_live_candles():
     fetch_initial_candles()
     while True:
         try:
-            url = f"{CONFIG['DELTA_BASE_URL']}/v2/history/candles?symbol={CONFIG['SYMBOL']}&resolution=1m"
+            now_ts = int(time.time())
+            start_ts = now_ts - (10 * 60)
+            url = f"{CONFIG['DELTA_BASE_URL']}/v2/history/candles?symbol={CONFIG['SYMBOL']}&resolution=1m&start={start_ts}&end={now_ts}"
             req = urllib.request.Request(url, headers={"User-Agent": "DeltaGoldSyndicate/2.0", "Accept": "application/json"})
             with urllib.request.urlopen(req, timeout=8) as r:
                 res = json.loads(r.read().decode("utf-8"))
