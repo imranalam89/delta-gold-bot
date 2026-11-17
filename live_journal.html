@@ -133,17 +133,17 @@ body { background-color: #07090e; color: #f1f5f9; font-family: system-ui, -apple
         Contracts dynamically calculated: Lots = round((Risk / SL_dist) * 1000).
       </p>
       <div class="flex items-center gap-2 flex-wrap pt-1 text-xs">
-        <button id="btnRisk1" onclick="setRiskAmount(1.0)" class="btn-risk px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold transition">$1</button>
-        <button id="btnRisk2" onclick="setRiskAmount(2.0)" class="btn-risk px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold transition">$2</button>
-        <button id="btnRisk3" onclick="setRiskAmount(3.0)" class="btn-risk px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold transition">$3</button>
-        <button id="btnRisk5" onclick="setRiskAmount(5.0)" class="btn-risk px-3 py-1.5 rounded-xl bg-rose-600 text-white border border-rose-500 font-bold transition shadow-lg shadow-rose-600/30">$5 (Default)</button>
-        <button id="btnRisk10" onclick="setRiskAmount(10.0)" class="btn-risk px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold transition">$10</button>
+        <button type="button" id="btnRisk1" onclick="setRiskAmount(1.0)" class="btn-risk px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold transition cursor-pointer">$1</button>
+        <button type="button" id="btnRisk2" onclick="setRiskAmount(2.0)" class="btn-risk px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold transition cursor-pointer">$2</button>
+        <button type="button" id="btnRisk3" onclick="setRiskAmount(3.0)" class="btn-risk px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold transition cursor-pointer">$3</button>
+        <button type="button" id="btnRisk5" onclick="setRiskAmount(5.0)" class="btn-risk px-3 py-1.5 rounded-xl bg-rose-600 text-white border border-rose-500 font-bold transition shadow-lg shadow-rose-600/30 cursor-pointer">$5 (Default)</button>
+        <button type="button" id="btnRisk10" onclick="setRiskAmount(10.0)" class="btn-risk px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold transition cursor-pointer">$10</button>
         <div class="flex items-center gap-1.5 ml-1">
           <div class="relative flex items-center">
             <span class="absolute left-2.5 text-slate-400 font-bold text-xs">$</span>
-            <input type="number" id="inputCustomRisk" min="0.5" max="500" step="0.5" placeholder="Custom" class="w-20 pl-6 pr-2 py-1.5 rounded-xl bg-slate-900 text-white border border-slate-700 font-mono text-xs focus:outline-none focus:border-rose-500 font-bold">
+            <input type="number" id="inputCustomRisk" min="0.5" max="500" step="0.5" placeholder="Custom" onkeydown="if(event.key==='Enter') applyCustomRisk()" class="w-20 pl-6 pr-2 py-1.5 rounded-xl bg-slate-900 text-white border border-slate-700 font-mono text-xs focus:outline-none focus:border-rose-500 font-bold">
           </div>
-          <button onclick="applyCustomRisk()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-600 hover:text-white text-slate-300 border border-slate-700 font-bold transition text-xs">Set</button>
+          <button type="button" id="btnCustomSet" onclick="applyCustomRisk()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-600 hover:text-white text-slate-300 border border-slate-700 font-bold transition text-xs cursor-pointer">Set</button>
         </div>
       </div>
     </div>
@@ -480,19 +480,7 @@ async function refreshData() {
       document.getElementById('btnToggleBotText').innerText = engineActive ? 'Pause Bot (Freeze Orders)' : 'Resume Engine';
 
       if (data.fixed_risk_usd !== undefined) {
-        currentRisk = data.fixed_risk_usd;
-        document.getElementById('currentRiskBadge').innerText = `$${currentRisk.toFixed(2)} / Trade (Fixed)`;
-        document.getElementById('statRiskUsd').innerText = `$${currentRisk.toFixed(2)}`;
-        [1.0, 2.0, 3.0, 5.0, 10.0].forEach(val => {
-          const btn = document.getElementById(`btnRisk${parseInt(val)}`);
-          if (btn) {
-            if (val === currentRisk) {
-              btn.className = 'btn-risk px-3 py-1.5 rounded-xl bg-rose-600 text-white border border-rose-500 font-bold transition shadow-lg shadow-rose-600/30';
-            } else {
-              btn.className = 'btn-risk px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold transition';
-            }
-          }
-        });
+        updateRiskUI(data.fixed_risk_usd);
       }
 
       // Active Position
@@ -552,8 +540,37 @@ async function toggleEngine(forceResume = false) {
   }
 }
 
+function updateRiskUI(amt) {
+  currentRisk = amt;
+  const badge = document.getElementById('currentRiskBadge');
+  if (badge) badge.innerText = `$${amt.toFixed(2)} / Trade (Fixed)`;
+  const stat = document.getElementById('statRiskUsd');
+  if (stat) stat.innerText = `$${amt.toFixed(2)}`;
+
+  [1, 2, 3, 5, 10].forEach(val => {
+    const btn = document.getElementById(`btnRisk${val}`);
+    if (btn) {
+      if (Math.abs(val - amt) < 0.01) {
+        btn.className = 'btn-risk px-3 py-1.5 rounded-xl bg-rose-600 text-white border border-rose-500 font-bold transition shadow-lg shadow-rose-600/30 cursor-pointer';
+      } else {
+        btn.className = 'btn-risk px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold transition cursor-pointer';
+      }
+    }
+  });
+
+  const customBtn = document.getElementById('btnCustomSet');
+  if (customBtn) {
+    if (![1, 2, 3, 5, 10].includes(amt)) {
+      customBtn.className = 'px-3 py-1.5 rounded-xl bg-rose-600 text-white border border-rose-500 font-bold transition shadow-lg shadow-rose-600/30 text-xs cursor-pointer';
+    } else {
+      customBtn.className = 'px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-600 text-slate-200 border border-slate-700 font-bold transition text-xs cursor-pointer';
+    }
+  }
+}
+
 function applyCustomRisk() {
   const inp = document.getElementById('inputCustomRisk');
+  if (!inp) return;
   const val = parseFloat(inp.value);
   if (!isNaN(val) && val > 0) {
     setRiskAmount(val);
@@ -562,25 +579,18 @@ function applyCustomRisk() {
 }
 
 async function setRiskAmount(amt) {
+  // 1. Immediately update UI (Instant responsive feedback!)
+  updateRiskUI(amt);
+
+  // 2. Transmit to Hostinger Python daemon
   try {
-    const res = await fetch(`/api/risk?amount=${amt}`, { method: 'POST' });
-    if (res.ok) {
-      currentRisk = amt;
-      document.getElementById('currentRiskBadge').innerText = `$${amt.toFixed(2)} / Trade (Fixed)`;
-      document.getElementById('statRiskUsd').innerText = `$${amt.toFixed(2)}`;
-      [1.0, 2.0, 3.0, 5.0, 10.0].forEach(val => {
-        const btn = document.getElementById(`btnRisk${parseInt(val)}`);
-        if (btn) {
-          if (val === amt) {
-            btn.className = 'btn-risk px-3 py-1.5 rounded-xl bg-rose-600 text-white border border-rose-500 font-bold transition shadow-lg shadow-rose-600/30';
-          } else {
-            btn.className = 'btn-risk px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold transition';
-          }
-        }
-      });
-    }
+    await fetch(`/api/risk?amount=${amt}`, { method: 'POST' });
   } catch (e) {
-    console.log('Set risk error:', e);
+    try {
+      await fetch(`/api/risk?amount=${amt}`);
+    } catch (err) {
+      console.log('Risk transmit error:', err);
+    }
   }
 }
 

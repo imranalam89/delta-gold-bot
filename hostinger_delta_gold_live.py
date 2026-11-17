@@ -636,7 +636,32 @@ class LiveDashboardHandler(SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(list(MARKET.closed_trades)).encode("utf-8"))
             return
 
+        elif path == "/api/risk":
+            qs = parse_qs(parsed.query)
+            amt = None
+            if "amount" in qs:
+                try:
+                    amt = float(qs["amount"][0])
+                except ValueError:
+                    pass
+            if amt is not None and amt > 0:
+                CONFIG["FIXED_RISK_USD"] = amt
+                print(f"[OPERATOR CONTROL] Fixed Risk updated to ${amt:.2f} per trade.")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": True, "fixed_risk_usd": CONFIG["FIXED_RISK_USD"]}).encode("utf-8"))
+            return
+
         return super().do_GET()
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "*")
+        self.end_headers()
 
     def do_POST(self):
         parsed = urlparse(self.path)
