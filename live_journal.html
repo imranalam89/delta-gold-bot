@@ -73,11 +73,11 @@ body { background-color: #07090e; color: #f1f5f9; font-family: system-ui, -apple
     </div>
     <div>
       <div class="font-bold text-white flex items-center gap-2">
-        <span>Active Rules: #1 Merged Super-Champion (Strict Single-Slot, Zero Overlap)</span>
+        <span>Active Rules: #1 Merged Super-Champion + Merged A+B 3-Pillar Exit Engine (Strict Single-Slot, Zero Overlap)</span>
         <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px]">100% Delta Native</span>
       </div>
       <p class="text-slate-400 text-[11px] mt-0.5">
-        0.85x Dynamic SL (3.23–9.35 pts) • <strong>Lots (50x)</strong> = round(oz × 1,000) • Fixed $5.00 Risk • ⏱️ 180m Time Cycle Exit • 40R Chandelier Runner Trail
+        0.85x Dynamic SL • Chart 1H–6H S/R TP &amp; S/R-Flip • Continuous Ratchet Trail (62–72% MFE) • Multi-TF Flow &amp; 1m/5m Fast-Rev (&lt;0.26R) Cut
       </p>
     </div>
   </div>
@@ -281,6 +281,13 @@ const MONTH_NAMES = ['January','February','March','April','May','June','July','A
 
 function formatExitReason(reason) {
   if (!reason) return 'N/A';
+  if (reason.includes('SR_WALL_TP') || reason.includes('SR_CEILING_TP')) return '🎯 Chart S/R Target TP';
+  if (reason.includes('SR_FLIP_FLOOR')) return '🟢 S/R-Flip Trail Hit';
+  if (reason.includes('CONTINUOUS_RATCHET_TRAIL')) return '🟢 Continuous Ratchet Trail';
+  if (reason.includes('FLOW_REVERSAL_CUT') || reason.includes('REVERSAL_PROFIT_LOCK')) return '⚡ Order-Flow Reversal Lock';
+  if (reason.includes('FAST_REVERSAL_SAVE')) return '🛡️ Fast-Rev Save (<0.26R)';
+  if (reason.includes('FAILED_SR_BREAK_CUT')) return '🟠 Failed S/R Break Cut';
+  if (reason.includes('PRE_SL_REV_CUT')) return '🟠 Pre-SL Breakdown Cut';
   if (reason.includes('TIME')) return '⏱️ Time Cycle Exit';
   if (reason.includes('40R') || reason.includes('TRAIL') || reason.includes('CHANDELIER')) return '🟢 Trailing SL Hit';
   if (reason.includes('STALL')) return '🟡 Smart Stall Lock';
@@ -479,7 +486,10 @@ function renderTradesTable() {
 
   const closedHtml = [...list].reverse().map(t => {
     const isWin = (t.net_pnl_usd || 0) >= 0;
-    const reasonCls = (t.exit_reason || '').includes('TIME') ? 'badge-time' : ((t.exit_reason || '').includes('TRAIL') ? 'badge-trail' : ((t.exit_reason || '').includes('STALL') ? 'badge-stall' : 'badge-sl'));
+    const er = t.exit_reason || '';
+    const reasonCls = er.includes('TIME') ? 'badge-time'
+      : ((er.includes('TRAIL') || er.includes('SR_WALL_TP') || er.includes('SR_CEILING_TP') || er.includes('SR_FLIP_FLOOR') || er.includes('FAST_REVERSAL_SAVE')) ? 'badge-trail'
+      : ((er.includes('STALL') || er.includes('FLOW_REVERSAL_CUT') || er.includes('REVERSAL_PROFIT_LOCK') || er.includes('BREAKEVEN')) ? 'badge-stall' : 'badge-sl'));
     return `
       <tr class="hover:bg-slate-900/50 transition">
         <td class="py-2.5 px-3 text-slate-400 font-bold">#${t.id}</td>
@@ -542,14 +552,15 @@ async function refreshData() {
         badge.className = 'px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 font-mono';
         document.getElementById('statOpenCount').innerText = '1 / 1';
         posBox.innerHTML = `
-          <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3 text-left">
+          <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-3 text-left">
             <div><span class="text-slate-500 text-[10px] block">Trade # / Dir</span><strong class="${pos.direction === 'LONG' ? 'text-emerald-400' : 'text-rose-400'}">#${tradeNum} ${pos.direction}</strong></div>
             <div><span class="text-slate-500 text-[10px] block">Entry Price</span><strong class="text-white">$${(pos.entry_price || 0).toFixed(2)}</strong></div>
             <div><span class="text-slate-500 text-[10px] block">Live Mark Price</span><strong class="text-cyan-300">$${curPx.toFixed(2)}</strong></div>
             <div><span class="text-slate-500 text-[10px] block">Current SL</span><strong class="text-amber-400">$${(pos.cur_sl || 0).toFixed(2)}</strong></div>
+            <div><span class="text-slate-500 text-[10px] block">Chart S/R Target</span><strong class="text-emerald-300">${pos.tp_price ? '$' + pos.tp_price.toFixed(2) : '--'}</strong></div>
             <div><span class="text-slate-500 text-[10px] block">Lots (50x)</span><strong class="text-amber-400">${pos.delta_lots} Lots</strong> <span class="text-slate-500 text-[10px]">($${(pos.margin_50x_usd || 0).toFixed(1)})</span></div>
             <div><span class="text-slate-500 text-[10px] block">Live Unrealized P&amp;L</span><strong class="${upnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${upnl >= 0 ? '+' : ''}$${upnl.toFixed(2)} (${rmult >= 0 ? '+' : ''}${rmult.toFixed(2)}R)</strong></div>
-            <div><span class="text-slate-500 text-[10px] block">Hold / Agent</span><strong class="text-purple-400">${pos.hold_mins || 0}m / 180m · ${pos.setup_agent}</strong></div>
+            <div><span class="text-slate-500 text-[10px] block">Hold / Agent</span><strong class="text-purple-400">${pos.hold_mins || 0}m / ${(pos.tf === '15m' || pos.tf === '1h') ? '270m' : '180m'} · ${pos.setup_agent}</strong></div>
           </div>
         `;
       } else {

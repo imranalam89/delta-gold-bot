@@ -2,11 +2,12 @@
 Hostinger VPS 24/7 Live Daemon — Pure Delta Exchange India (XAUTUSD)
 =====================================================================
 Locked Production Engine: #1 Merged Super-Champion (>=4/6 + 15m Sniper)
+  + Merged A+B 3-Pillar Exit Engine (Chart S/R TP & S/R-Flip, Continuous Ratchet Trail, Multi-TF & 1m/5m Fast-Rev Cut)
 - Execution: Delta Exchange India (Account 74634658) with HMAC-SHA256
 - Leverage: 50x Perpetual Leverage (1 Contract = 0.001 oz)
-- Risk: Fixed $5.00 Risk per Trade
+- Risk: Fixed $2.00 Default / Operator Configurable Risk per Trade
 - Storage: 100% In-Memory Circular Buffers (ZERO Disk Tick Bloat on Hostinger)
-- Exits: 0.85x SL, Smart Stall (+0.33R), Breakeven (+0.45R), 40R Chandelier Trail, 180m Time Cycle Exit
+- Exits: 0.85x SL, Chart 1H-6H S/R TP & S/R-Flip, Continuous Ratchet Trail (62-72% MFE), Multi-TF Flow & 1m/5m Fast-Rev (<0.26R) Cut
 - Dedicated Isolated Port: 5055 (Port 5050 left 100% untouched)
 """
 
@@ -443,27 +444,145 @@ class DeltaExchangeClient:
 DELTA = DeltaExchangeClient(CONFIG)
 
 # ==============================================================================
-# STRATEGY LIFECYCLE CONTROLLER (#1 MERGED SUPER-CHAMPION)
+# STRATEGY LIFECYCLE CONTROLLER (#1 MERGED SUPER-CHAMPION + MERGED A+B EXIT)
 # ==============================================================================
 class StrategyController:
     """
-    Executes the exact #1 Merged Super-Champion lifecycle:
-    - Fixed $5.00 Risk
-    - 50x leverage lots: delta_lots = round(qty_oz * 1000)
+    Executes the #1 Merged Super-Champion + Merged A+B 3-Pillar Exit Engine:
+    - Fixed Risk per Trade, 50x leverage lots: delta_lots = round(qty_oz * 1000)
     - 0.85x SL calibration
-    - Smart Stall Lock (+0.33R)
-    - Breakeven Lock (+0.45R @ +1.05R)
-    - Continuous 40R Chandelier Trail (+2.10R)
-    - ⏱️ 180-Minute Time Cycle Exit
+    - Pillar 1: Dynamic Chart 1H/2H/4H/6H S/R Rejection TP & S/R-Flip Floor
+    - Pillar 2: Multi-TF Order-Flow Reversal Cut, Pre-SL Cut, Failed S/R Cut & 1m/5m Fast-Rev Save (<0.26R)
+    - Pillar 3: Continuous S/R-Aware Ratchet Trailing SL (62-72% MFE + 12-Bar Swing Floor)
+    - 180m (1m/5m) / 270m (15m/1h) Time Cycle Exit
     """
     def __init__(self):
         self.lock = threading.RLock()
+
+    def _compute_live_context(self) -> Dict[str, Any]:
+        """Computes causal 1m indicators, Delta-native order flow, and 1H-6H S/R levels purely in RAM."""
+        bars = list(MARKET.bars_1m)
+        if not bars:
+            return {}
+
+        opens = [float(b["open"]) for b in bars]
+        highs = [float(b["high"]) for b in bars]
+        lows = [float(b["low"]) for b in bars]
+        closes = [float(b["close"]) for b in bars]
+        vols = [float(b.get("volume", 1.0)) for b in bars]
+
+        o, h, l, c, v = opens[-1], highs[-1], lows[-1], closes[-1], vols[-1]
+
+        def _ema(series: List[float], period: int) -> float:
+            k = 2.0 / (period + 1.0)
+            res = series[0]
+            for val in series[1:]:
+                res = val * k + res * (1.0 - k)
+            return res
+
+        ema9 = _ema(closes, 9)
+        ema15 = _ema(closes, 15)
+        ema50 = _ema(closes, 60) if len(closes) >= 60 else ema15
+        ema200 = _ema(closes, 240) if len(closes) >= 240 else ema50
+
+        body = max(abs(c - o), 0.05)
+        lw = max(0.0, min(o, c) - l) / body
+        uw = max(0.0, h - max(o, c)) / body
+
+        prev_h = highs[-2] if len(highs) >= 2 else h
+        prev_l = lows[-2] if len(lows) >= 2 else l
+        b_mss = (c > o) and (c > prev_h)
+        s_mss = (c < o) and (c < prev_l)
+
+        bar_deltas = []
+        for b in bars[-15:]:
+            bo, bh, bl, bc = float(b["open"]), float(b["high"]), float(b["low"]), float(b["close"])
+            bvol = float(b.get("volume", 1.0))
+            brng = max(bh - bl, 1e-6)
+            clv_body = (bc - bo) / brng
+            clv_wick = ((min(bo, bc) - bl) - (bh - max(bo, bc))) / brng
+            eff_bias = max(-1.0, min(1.0, 0.7 * clv_body + 0.3 * clv_wick))
+            v_norm = max(bvol / 1000.0, 1.0) if bvol > 50.0 else max(bvol, 1.0)
+            bar_deltas.append(eff_bias * v_norm * 0.45)
+
+        d5 = sum(bar_deltas[-5:])
+        d15 = sum(bar_deltas[-15:])
+
+        vol_win = vols[-min(60, len(vols)):]
+        mean_v = sum(vol_win) / len(vol_win)
+        var_v = sum((x - mean_v) ** 2 for x in vol_win) / len(vol_win)
+        std_v = max(var_v ** 0.5, 1.0)
+        vz = (v - mean_v) / std_v
+
+        h_src = highs[:-1] if len(highs) >= 5 else highs
+        l_src = lows[:-1] if len(lows) >= 5 else lows
+
+        sh20 = max(h_src[-min(20, len(h_src)):])
+        sl20 = min(l_src[-min(20, len(l_src)):])
+        rh60 = max(h_src[-min(60, len(h_src)):])
+        rl60 = min(l_src[-min(60, len(l_src)):])
+        rpos60 = (c - rl60) / max(rh60 - rl60, 0.10)
+        rh120 = max(h_src[-min(120, len(h_src)):])
+        rl120 = min(l_src[-min(120, len(l_src)):])
+        rh240 = max(h_src[-min(240, len(h_src)):])
+        rl240 = min(l_src[-min(240, len(l_src)):])
+        rh360 = max(h_src[-min(360, len(h_src)):])
+        rl360 = min(l_src[-min(360, len(l_src)):])
+        swing_12_low = min(lows[-min(12, len(lows)):])
+        swing_12_high = max(highs[-min(12, len(highs)):])
+
+        return {
+            "o": o, "h": h, "l": l, "c": c, "v": v,
+            "ema9": ema9, "ema15": ema15, "ema50": ema50, "ema200": ema200,
+            "lw": lw, "uw": uw, "b_mss": b_mss, "s_mss": s_mss,
+            "d5": d5, "d15": d15, "vz": vz,
+            "sh20": sh20, "sl20": sl20,
+            "rh60": rh60, "rl60": rl60, "rpos60": rpos60,
+            "rh120": rh120, "rl120": rl120,
+            "rh240": rh240, "rl240": rl240,
+            "rh360": rh360, "rl360": rl360,
+            "swing_12_low": swing_12_low, "swing_12_high": swing_12_high,
+        }
+
+    def _compute_sr_targets(
+        self, entry_px: float, sl_dist: float, direction: str, ctx: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """Computes causal 1H/2H/4H/6H chart S/R target walls and outer TP price."""
+        if ctx is None:
+            ctx = self._compute_live_context()
+        if ctx and sl_dist > 0:
+            if direction == "LONG":
+                sr1h = (ctx["rh60"] - entry_px) / sl_dist
+                sr2h = (ctx["rh120"] - entry_px) / sl_dist
+                sr4h = (ctx["rh240"] - entry_px) / sl_dist
+                sr6h = (ctx["rh360"] - entry_px) / sl_dist
+            else:
+                sr1h = (entry_px - ctx["rl60"]) / sl_dist
+                sr2h = (entry_px - ctx["rl120"]) / sl_dist
+                sr4h = (entry_px - ctx["rl240"]) / sl_dist
+                sr6h = (entry_px - ctx["rl360"]) / sl_dist
+        else:
+            sr1h = sr2h = sr4h = sr6h = 3.50
+
+        sr_walls = sorted(list({round(w, 2) for w in (sr1h, sr2h, sr4h, sr6h) if 1.15 <= w <= 3.60}))
+        outer_tp_r = 3.50
+        for w in reversed(sr_walls):
+            if 2.60 <= w <= 3.65:
+                outer_tp_r = round(w * 0.98, 2)
+                break
+        tp_price = round(entry_px + outer_tp_r * sl_dist if direction == "LONG" else entry_px - outer_tp_r * sl_dist, 2)
+        return {
+            "sr1h": round(sr1h, 2),
+            "sr_walls": sr_walls,
+            "outer_tp_r": outer_tp_r,
+            "tp_price": tp_price,
+        }
 
     def on_tick(self, mid_px: float):
         with self.lock:
             if not MARKET.engine_active or MARKET.active_position is None:
                 return
-            self.manage_active_trade(mid_px, mid_px, mid_px)
+            self.manage_active_trade(mid_px, mid_px, mid_px, is_bar_close=False)
 
     def on_bar_close(self, bar: Dict[str, Any]):
         with self.lock:
@@ -477,14 +596,14 @@ class StrategyController:
 
             # 1. Manage Active Position (if open)
             if MARKET.active_position is not None:
-                self.manage_active_trade(h_px, l_px, c_px)
+                self.manage_active_trade(h_px, l_px, c_px, is_bar_close=True)
                 return
 
             # 2. Check for New Setup Signals (Strict Single-Slot)
             if len(MARKET.bars_1m) >= 30:
                 self.evaluate_signals(bar)
 
-    def manage_active_trade(self, h_px: float, l_px: float, c_px: float):
+    def manage_active_trade(self, h_px: float, l_px: float, c_px: float, is_bar_close: bool = False):
         t = MARKET.active_position
         if not t:
             return
@@ -493,9 +612,19 @@ class StrategyController:
         t["hold_mins"] = max(0, int((now_ts - entry_ts) // 60))
 
         is_long = t["direction"] == "LONG"
-        sl_dist = t["sl_dist"]
-        e_px = t["entry_price"]
-        cur_sl = t["cur_sl"]
+        sl_dist = float(t["sl_dist"])
+        e_px = float(t["entry_price"])
+        cur_sl = float(t["cur_sl"])
+
+        if t.get("tp_price") is None:
+            sr_info = self._compute_sr_targets(e_px, sl_dist, t["direction"])
+            t.update(sr_info)
+        sr_walls = t.get("sr_walls") or []
+        sr1h = float(t.get("sr1h", 1.0))
+        outer_tp_r = float(t.get("outer_tp_r", 3.50))
+        tp_px = float(t["tp_price"])
+
+        ctx = self._compute_live_context() if is_bar_close else {}
 
         # Live P&L and price metrics for dashboard rendering
         t["current_price"] = round(c_px, 2)
@@ -514,84 +643,223 @@ class StrategyController:
                 t["peak_fav"] = fav
                 t["peak_bar"] = t["hold_mins"]
             mfe_r = t["peak_fav"] / sl_dist
+            cur_close_r = (c_px - e_px) / sl_dist
 
-            # SL Hit
+            # 1. Stop-Loss / Trailing-Stop Hit Check
             if l_px <= cur_sl:
-                self.close_position(cur_sl, t["stage_reason"] or "STOP_LOSS")
+                self.close_position(cur_sl, t.get("stage_reason") or "STOP_LOSS")
                 return
 
-            # Smart Stall Lock (+0.33R on 6 bars stalled after +0.54R)
+            # 2. Outer Chart S/R Ceiling TP Hit Check
+            if h_px >= tp_px:
+                self.close_position(tp_px, f"SR_CEILING_TP_{outer_tp_r:.2f}R")
+                return
+
+            # 3. Dynamic Chart S/R Wall Rejection TP & S/R-Flip Stop Floor
+            if mfe_r >= 1.25:
+                for w in sr_walls:
+                    if is_bar_close and ctx and (0.95 * w <= mfe_r <= 1.08 * w) and cur_close_r >= 1.10:
+                        rejecting = (
+                            (c_px < ctx["o"] and (ctx["d5"] < 0 or ctx["uw"] >= 1.05 or c_px < ctx["ema9"]))
+                            or ((t["hold_mins"] - t["peak_bar"] >= 2) and cur_close_r >= 0.88 * w and (ctx["d5"] < 0 or ctx["s_mss"]))
+                        )
+                        if rejecting:
+                            wall_px = round(e_px + min(mfe_r, w * 0.97) * sl_dist, 2)
+                            exit_val = max(round(c_px, 2), wall_px) if h_px >= wall_px else round(c_px, 2)
+                            self.close_position(exit_val, f"SR_WALL_TP_{w:.2f}R")
+                            return
+                    elif mfe_r > 1.08 * w:
+                        flip_sl = round(e_px + (w * 0.86) * sl_dist, 2)
+                        if flip_sl > t["cur_sl"] and flip_sl < c_px:
+                            t["cur_sl"] = flip_sl
+                            t["stage"] = 4
+                            t["stall_locked"] = False
+                            t["stage_reason"] = f"SR_FLIP_FLOOR_{w:.2f}R"
+                            sl_changed = True
+
+            # 4. Proactive Multi-TF Reversal Cuts (Bar Close)
+            if is_bar_close and ctx:
+                if t["stage"] == 0 and t["hold_mins"] >= 5 and mfe_r <= 0.32 and (-0.88 <= cur_close_r <= -0.62):
+                    if ctx["s_mss"] and (c_px < ctx["sl20"]) and (ctx["d5"] < 0) and (ctx["vz"] >= 0.90):
+                        self.close_position(round(c_px, 2), "PRE_SL_REV_CUT")
+                        return
+                if t["stage"] == 0 and sr1h <= 0.15 and t["hold_mins"] >= 5 and mfe_r >= 0.50 and cur_close_r <= -0.25:
+                    if ctx["s_mss"] and (c_px < ctx["ema15"]):
+                        self.close_position(round(c_px, 2), "FAILED_SR_BREAK_CUT")
+                        return
+                if t.get("tf") in ("1m", "5m") and t["stage"] <= 1 and mfe_r >= 0.75 and (0.18 <= cur_close_r <= 0.26):
+                    if ctx["s_mss"] and ctx["d5"] < 0:
+                        self.close_position(round(c_px, 2), "FAST_REVERSAL_SAVE")
+                        return
+                if t["hold_mins"] >= 7 and (0.75 <= mfe_r <= 1.75) and cur_close_r >= 0.48 and ((mfe_r - cur_close_r) >= 0.22):
+                    if ctx["s_mss"] and ctx["d5"] < 0 and ctx["d15"] < 0 and (c_px < ctx["ema15"] or ctx["rpos60"] >= 0.85):
+                        self.close_position(round(c_px, 2), "FLOW_REVERSAL_CUT")
+                        return
+                if t["hold_mins"] >= 10 and mfe_r >= 1.15 and cur_close_r >= 0.45 and ((mfe_r - cur_close_r) >= 0.55):
+                    if ctx["s_mss"] and ctx["d5"] < 0 and ctx["vz"] >= 1.25:
+                        self.close_position(round(c_px, 2), "REVERSAL_PROFIT_LOCK")
+                        return
+
+            # 5. Smart Stall Lock (+0.33R) & Breathing Floor (+0.12R..+0.40R)
             if t["stage"] <= 1 and mfe_r >= 0.54:
-                if (t["hold_mins"] - t["peak_bar"] >= 6) and (c_px >= e_px + 0.33 * sl_dist):
+                stalled = (t["hold_mins"] - t["peak_bar"]) >= 6
+                flow_flip = bool(is_bar_close and ctx and ctx["s_mss"] and ctx["d5"] < 0)
+                ema15_lost = bool(ctx and c_px < ctx["ema15"])
+                if flow_flip or (stalled and (not is_bar_close or ema15_lost)):
                     lock_px = round(e_px + 0.33 * sl_dist, 2)
-                    if lock_px > t["cur_sl"]:
+                    if c_px >= lock_px and lock_px > t["cur_sl"]:
                         t["cur_sl"] = lock_px
-                        t["stage"] = 1
+                        t["stage"] = max(t["stage"], 1)
+                        t["stall_locked"] = True
                         t["stage_reason"] = "SMART_STALL_LOCK"
                         sl_changed = True
+                elif is_bar_close and stalled and (not t.get("stall_locked")):
+                    breath_r = min(0.40, max(0.12, mfe_r - 0.52))
+                    lock_px = round(e_px + breath_r * sl_dist, 2)
+                    if c_px >= lock_px and lock_px > t["cur_sl"]:
+                        t["cur_sl"] = lock_px
+                        t["stage"] = max(t["stage"], 1)
+                        t["stage_reason"] = "CONTINUOUS_RATCHET_TRAIL"
+                        sl_changed = True
 
-            # Breakeven Lock (+1.05R -> +0.45R)
+            # 6. Breakeven Lock (+1.05R -> +0.45R)
             if t["stage"] <= 1 and mfe_r >= 1.05:
                 be_px = round(e_px + 0.45 * sl_dist, 2)
                 if be_px > t["cur_sl"]:
                     t["cur_sl"] = be_px
-                    t["stage"] = 2
                     t["stage_reason"] = "BREAKEVEN"
                     sl_changed = True
+                t["stage"] = 2
+                t["stall_locked"] = False
 
-            # Continuous 40R Chandelier Trail (+2.10R trigger)
-            if mfe_r >= 2.10:
-                t["stage"] = 4
-                atr_floor = round(e_px + (mfe_r - 0.85) * sl_dist, 2)
-                if atr_floor > t["cur_sl"] and atr_floor < c_px:
-                    t["cur_sl"] = atr_floor
-                    t["stage_reason"] = "CONTINUOUS_40R_SL_TRAIL"
+            # 7. Continuous S/R-Aware Ratchet Trailing SL (mfe_r >= 1.10)
+            if mfe_r >= 1.10:
+                in_sr_zone = bool(ctx and ctx["rpos60"] >= 0.88) or any(0.92 * w <= mfe_r <= 1.05 * w for w in sr_walls)
+                keep_pct = 0.72 if in_sr_zone else 0.62
+                ratchet_r = max(0.45, mfe_r * keep_pct)
+                swing_floor = (ctx["swing_12_low"] - 0.15 * sl_dist) if (ctx and mfe_r >= 1.50) else 0.0
+                cand_sl = round(max(e_px + ratchet_r * sl_dist, swing_floor), 2)
+                if cand_sl > t["cur_sl"] and cand_sl < c_px:
+                    t["cur_sl"] = cand_sl
+                    t["stage"] = 4
+                    t["stall_locked"] = False
+                    t["stage_reason"] = "CONTINUOUS_RATCHET_TRAIL"
                     sl_changed = True
-        else: # SHORT
+        else:  # SHORT
             fav = e_px - l_px
             if fav > t["peak_fav"]:
                 t["peak_fav"] = fav
                 t["peak_bar"] = t["hold_mins"]
             mfe_r = t["peak_fav"] / sl_dist
+            cur_close_r = (e_px - c_px) / sl_dist
 
-            # SL Hit
+            # 1. Stop-Loss / Trailing-Stop Hit Check
             if h_px >= cur_sl:
-                self.close_position(cur_sl, t["stage_reason"] or "STOP_LOSS")
+                self.close_position(cur_sl, t.get("stage_reason") or "STOP_LOSS")
                 return
 
-            # Smart Stall Lock
+            # 2. Outer Chart S/R Ceiling TP Hit Check
+            if l_px <= tp_px:
+                self.close_position(tp_px, f"SR_CEILING_TP_{outer_tp_r:.2f}R")
+                return
+
+            # 3. Dynamic Chart S/R Wall Rejection TP & S/R-Flip Stop Floor
+            if mfe_r >= 1.25:
+                for w in sr_walls:
+                    if is_bar_close and ctx and (0.95 * w <= mfe_r <= 1.08 * w) and cur_close_r >= 1.10:
+                        rejecting = (
+                            (c_px > ctx["o"] and (ctx["d5"] > 0 or ctx["lw"] >= 1.05 or c_px > ctx["ema9"]))
+                            or ((t["hold_mins"] - t["peak_bar"] >= 2) and cur_close_r >= 0.88 * w and (ctx["d5"] > 0 or ctx["b_mss"]))
+                        )
+                        if rejecting:
+                            wall_px = round(e_px - min(mfe_r, w * 0.97) * sl_dist, 2)
+                            exit_val = min(round(c_px, 2), wall_px) if l_px <= wall_px else round(c_px, 2)
+                            self.close_position(exit_val, f"SR_WALL_TP_{w:.2f}R")
+                            return
+                    elif mfe_r > 1.08 * w:
+                        flip_sl = round(e_px - (w * 0.86) * sl_dist, 2)
+                        if flip_sl < t["cur_sl"] and flip_sl > c_px:
+                            t["cur_sl"] = flip_sl
+                            t["stage"] = 4
+                            t["stall_locked"] = False
+                            t["stage_reason"] = f"SR_FLIP_FLOOR_{w:.2f}R"
+                            sl_changed = True
+
+            # 4. Proactive Multi-TF Reversal Cuts (Bar Close)
+            if is_bar_close and ctx:
+                if t["stage"] == 0 and t["hold_mins"] >= 5 and mfe_r <= 0.32 and (-0.88 <= cur_close_r <= -0.62):
+                    if ctx["b_mss"] and (c_px > ctx["sh20"]) and (ctx["d5"] > 0) and (ctx["vz"] >= 0.90):
+                        self.close_position(round(c_px, 2), "PRE_SL_REV_CUT")
+                        return
+                if t["stage"] == 0 and sr1h <= 0.15 and t["hold_mins"] >= 5 and mfe_r >= 0.50 and cur_close_r <= -0.25:
+                    if ctx["b_mss"] and (c_px > ctx["ema15"]):
+                        self.close_position(round(c_px, 2), "FAILED_SR_BREAK_CUT")
+                        return
+                if t.get("tf") in ("1m", "5m") and t["stage"] <= 1 and mfe_r >= 0.75 and (0.18 <= cur_close_r <= 0.26):
+                    if ctx["b_mss"] and ctx["d5"] > 0:
+                        self.close_position(round(c_px, 2), "FAST_REVERSAL_SAVE")
+                        return
+                if t["hold_mins"] >= 7 and (0.75 <= mfe_r <= 1.75) and cur_close_r >= 0.48 and ((mfe_r - cur_close_r) >= 0.22):
+                    if ctx["b_mss"] and ctx["d5"] > 0 and ctx["d15"] > 0 and (c_px > ctx["ema15"] or ctx["rpos60"] <= 0.15):
+                        self.close_position(round(c_px, 2), "FLOW_REVERSAL_CUT")
+                        return
+                if t["hold_mins"] >= 10 and mfe_r >= 1.15 and cur_close_r >= 0.45 and ((mfe_r - cur_close_r) >= 0.55):
+                    if ctx["b_mss"] and ctx["d5"] > 0 and ctx["vz"] >= 1.25:
+                        self.close_position(round(c_px, 2), "REVERSAL_PROFIT_LOCK")
+                        return
+
+            # 5. Smart Stall Lock (+0.33R) & Breathing Floor (+0.12R..+0.40R)
             if t["stage"] <= 1 and mfe_r >= 0.54:
-                if (t["hold_mins"] - t["peak_bar"] >= 6) and (c_px <= e_px - 0.33 * sl_dist):
+                stalled = (t["hold_mins"] - t["peak_bar"]) >= 6
+                flow_flip = bool(is_bar_close and ctx and ctx["b_mss"] and ctx["d5"] > 0)
+                ema15_lost = bool(ctx and c_px > ctx["ema15"])
+                if flow_flip or (stalled and (not is_bar_close or ema15_lost)):
                     lock_px = round(e_px - 0.33 * sl_dist, 2)
-                    if lock_px < t["cur_sl"]:
+                    if c_px <= lock_px and lock_px < t["cur_sl"]:
                         t["cur_sl"] = lock_px
-                        t["stage"] = 1
+                        t["stage"] = max(t["stage"], 1)
+                        t["stall_locked"] = True
                         t["stage_reason"] = "SMART_STALL_LOCK"
                         sl_changed = True
+                elif is_bar_close and stalled and (not t.get("stall_locked")):
+                    breath_r = min(0.40, max(0.12, mfe_r - 0.52))
+                    lock_px = round(e_px - breath_r * sl_dist, 2)
+                    if c_px <= lock_px and lock_px < t["cur_sl"]:
+                        t["cur_sl"] = lock_px
+                        t["stage"] = max(t["stage"], 1)
+                        t["stage_reason"] = "CONTINUOUS_RATCHET_TRAIL"
+                        sl_changed = True
 
-            # Breakeven Lock
+            # 6. Breakeven Lock (+1.05R -> +0.45R)
             if t["stage"] <= 1 and mfe_r >= 1.05:
                 be_px = round(e_px - 0.45 * sl_dist, 2)
                 if be_px < t["cur_sl"]:
                     t["cur_sl"] = be_px
-                    t["stage"] = 2
                     t["stage_reason"] = "BREAKEVEN"
                     sl_changed = True
+                t["stage"] = 2
+                t["stall_locked"] = False
 
-            # Continuous 40R Chandelier Trail
-            if mfe_r >= 2.10:
-                t["stage"] = 4
-                atr_ceil = round(e_px - (mfe_r - 0.85) * sl_dist, 2)
-                if atr_ceil < t["cur_sl"] and atr_ceil > c_px:
-                    t["cur_sl"] = atr_ceil
-                    t["stage_reason"] = "CONTINUOUS_40R_SL_TRAIL"
+            # 7. Continuous S/R-Aware Ratchet Trailing SL (mfe_r >= 1.10)
+            if mfe_r >= 1.10:
+                in_sr_zone = bool(ctx and ctx["rpos60"] <= 0.12) or any(0.92 * w <= mfe_r <= 1.05 * w for w in sr_walls)
+                keep_pct = 0.72 if in_sr_zone else 0.62
+                ratchet_r = max(0.45, mfe_r * keep_pct)
+                swing_ceil = (ctx["swing_12_high"] + 0.15 * sl_dist) if (ctx and mfe_r >= 1.50) else 999999.0
+                cand_sl = round(min(e_px - ratchet_r * sl_dist, swing_ceil), 2)
+                if cand_sl < t["cur_sl"] and cand_sl > c_px:
+                    t["cur_sl"] = cand_sl
+                    t["stage"] = 4
+                    t["stall_locked"] = False
+                    t["stage_reason"] = "CONTINUOUS_RATCHET_TRAIL"
                     sl_changed = True
 
         if sl_changed:
             DELTA.sync_exchange_sl(t["direction"], t["delta_lots"], t["cur_sl"], t)
 
-        # ⏱️ 180-Minute Time Cycle Exit Rule
-        if t["hold_mins"] >= CONFIG["MAX_HOLD_MINS"]:
+        # 8. Time Cycle Exit Rule (180m for 1m/5m, 270m for 15m/1h)
+        max_hold_limit = 270 if t.get("tf") in ("15m", "1h") else CONFIG["MAX_HOLD_MINS"]
+        if t["hold_mins"] >= max_hold_limit:
             self.close_position(c_px, "TIME_CYCLE_EXIT")
 
     def close_position(self, exit_px: float, reason: str):
@@ -687,22 +955,24 @@ class StrategyController:
                 peak_fav = round(max([0.0, pts] + hist_favs), 2)
                 mfe_r = peak_fav / sl_dist if sl_dist > 0 else 0.0
 
+                sr_info = self._compute_sr_targets(pos_entry, sl_dist, direction)
                 cur_sl = init_sl
                 stage = 0
                 stage_reason = ""
-                if mfe_r >= 2.10:
+                if mfe_r >= 1.10:
+                    ratchet_r = max(0.45, mfe_r * 0.62)
                     if direction == "LONG":
-                        trail_px = round(pos_entry + (mfe_r - 0.85) * sl_dist, 2)
+                        trail_px = round(pos_entry + ratchet_r * sl_dist, 2)
                         be_px = round(pos_entry + 0.45 * sl_dist, 2)
                         if trail_px > cur_sl and trail_px < cur_px:
-                            cur_sl, stage, stage_reason = trail_px, 4, "CONTINUOUS_40R_SL_TRAIL"
+                            cur_sl, stage, stage_reason = trail_px, 4, "CONTINUOUS_RATCHET_TRAIL"
                         elif be_px > cur_sl and be_px < cur_px:
                             cur_sl, stage, stage_reason = be_px, 2, "BREAKEVEN"
                     else:
-                        trail_px = round(pos_entry - (mfe_r - 0.85) * sl_dist, 2)
+                        trail_px = round(pos_entry - ratchet_r * sl_dist, 2)
                         be_px = round(pos_entry - 0.45 * sl_dist, 2)
                         if trail_px < cur_sl and trail_px > cur_px:
-                            cur_sl, stage, stage_reason = trail_px, 4, "CONTINUOUS_40R_SL_TRAIL"
+                            cur_sl, stage, stage_reason = trail_px, 4, "CONTINUOUS_RATCHET_TRAIL"
                         elif be_px < cur_sl and be_px > cur_px:
                             cur_sl, stage, stage_reason = be_px, 2, "BREAKEVEN"
                 elif mfe_r >= 1.05:
@@ -735,6 +1005,7 @@ class StrategyController:
                     "peak_fav": peak_fav,
                     "peak_bar": 0,
                     "stage": stage,
+                    "stall_locked": False,
                     "stage_reason": stage_reason,
                     "pts": pts,
                     "r_multiple": round(pts / sl_dist, 2),
@@ -742,6 +1013,7 @@ class StrategyController:
                     "unrealized_pnl_usd": upnl,
                     "sl_order_id": None,
                     "exchange_sl_price": None,
+                    **sr_info,
                 }
                 print(f"[SYNC] Adopted live Delta position #{MARKET.active_position['id']}: {direction} {lots} Lots @ ${pos_entry:.2f}")
                 DELTA.sync_exchange_sl(direction, lots, cur_sl, MARKET.active_position)
@@ -974,6 +1246,7 @@ class StrategyController:
             fill_raw = order_res.get("result", {}).get("average_fill_price") if isinstance(order_res.get("result"), dict) else None
             fill_px = round(float(fill_raw), 2) if fill_raw else c
             init_sl = round(fill_px - sl_dist, 2) if dir_to_fire == "LONG" else round(fill_px + sl_dist, 2)
+            sr_info = self._compute_sr_targets(fill_px, sl_dist, dir_to_fire)
 
             MARKET.active_position = {
                 "id": len(MARKET.closed_trades) + 1,
@@ -995,6 +1268,7 @@ class StrategyController:
                 "peak_fav": 0.0,
                 "peak_bar": 0,
                 "stage": 0,
+                "stall_locked": False,
                 "stage_reason": "",
                 "pts": 0.0,
                 "r_multiple": 0.0,
@@ -1002,6 +1276,7 @@ class StrategyController:
                 "unrealized_pnl_usd": 0.0,
                 "sl_order_id": None,
                 "exchange_sl_price": None,
+                **sr_info,
             }
             DELTA.sync_exchange_sl(dir_to_fire, delta_lots, init_sl, MARKET.active_position)
 
@@ -1070,8 +1345,8 @@ class LiveDashboardHandler(SimpleHTTPRequestHandler):
                 "symbol": CONFIG["SYMBOL"],
                 "leverage": f"{CONFIG['LEVERAGE']}x",
                 "fixed_risk_usd": CONFIG["FIXED_RISK_USD"],
-                "strategy": "#1 Merged Super-Champion (>=4/6 + 15m Sniper)",
-                "rules": "0.85x Dynamic SL, 50x Lots, 180m Time Cycle Exit, 40R Chandelier Trail",
+                "strategy": "#1 Merged Super-Champion (>=4/6 + 15m Sniper) + Merged A+B Exit",
+                "rules": "0.85x Dynamic SL, Chart 1H-6H S/R TP & S/R-Flip, Continuous Ratchet Trail (62-72% MFE), Multi-TF Flow & Fast-Rev (<0.26R) Cut",
                 "engine_active": MARKET.engine_active,
                 "delta_account": CONFIG["DELTA_ACCOUNT_ID"],
                 "wallet_balance_usd": round(bal, 2),
@@ -1181,7 +1456,7 @@ class LiveDashboardHandler(SimpleHTTPRequestHandler):
     <div class="card">
       <div class="card-title">Exit Rules Locked</div>
       <div class="card-val" style="font-size:15px; color:var(--cyan); line-height:1.4;">
-        ⏱️ 180m Time Exit<br>0.85x Dynamic SL · 40R Trail
+        🎯 Chart 1H–6H S/R TP &amp; Flip<br>Continuous Ratchet · Fast-Rev Cut
       </div>
     </div>
     <div class="card">
@@ -1202,10 +1477,10 @@ class LiveDashboardHandler(SimpleHTTPRequestHandler):
 </html>"""
 
 def fetch_initial_candles():
-    """Fetches historical 1m candles on startup to prime all indicators."""
+    """Fetches historical 1m candles on startup to prime all indicators (including 1H-6H S/R)."""
     try:
         now_ts = int(time.time())
-        start_ts = now_ts - (300 * 60)
+        start_ts = now_ts - (420 * 60)
         url = f"{CONFIG['DELTA_BASE_URL']}/v2/history/candles?symbol={CONFIG['SYMBOL']}&resolution=1m&start={start_ts}&end={now_ts}"
         req = urllib.request.Request(url, headers={"User-Agent": "DeltaGoldSyndicate/2.0", "Accept": "application/json"})
         with urllib.request.urlopen(req, timeout=10) as r:
