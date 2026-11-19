@@ -14,6 +14,7 @@ Locked Production Engine: #1 Merged Super-Champion (>=4/6 + 15m Sniper)
 import os
 import sys
 import time
+import math
 import json
 import hmac
 import hashlib
@@ -22,7 +23,7 @@ from collections import deque
 from datetime import datetime, timezone
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 import urllib.request
 import urllib.error
 
@@ -459,89 +460,300 @@ class StrategyController:
     def __init__(self):
         self.lock = threading.RLock()
 
-    def _compute_live_context(self) -> Dict[str, Any]:
-        """Computes causal 1m indicators, Delta-native order flow, and 1H-6H S/R levels purely in RAM."""
+    def _compute_live_context(self, bar_ts: Optional[int] = None) -> Dict[str, Any]:
+        """Computes causal 1m indicators, 16-agent features, Delta-native order flow, and 1H-6H S/R levels purely in RAM."""
         bars = list(MARKET.bars_1m)
         if not bars:
             return {}
 
+        n_bars = len(bars)
         opens = [float(b["open"]) for b in bars]
         highs = [float(b["high"]) for b in bars]
         lows = [float(b["low"]) for b in bars]
         closes = [float(b["close"]) for b in bars]
-        vols = [float(b.get("volume", 1.0)) for b in bars]
+        raw_vols = [float(b.get("volume", 1.0)) for b in bars]
 
-        o, h, l, c, v = opens[-1], highs[-1], lows[-1], closes[-1], vols[-1]
+        o, h, l, c = opens[-1], highs[-1], lows[-1], closes[-1]
 
-        def _ema(series: List[float], period: int) -> float:
+        # Normalize & winsorize extreme flash-crash spikes without clipping legitimate 2x-10x volume bursts in short RAM buffers
+        d_vols = [max(rv / 1000.0, 1.0) if rv > 50.0 else max(rv, 1.0) for rv in raw_vols]
+        sorted_v = sorted(d_vols)
+        p985 = sorted_v[min(len(sorted_v) - 1, int(0.985 * (len(sorted_v) - 1)))]
+        med_v = sorted_v[len(sorted_v) // 2]
+        vol_cap = max(p985, med_v * 12.0)
+        norm_vols = [min(max(x, 1.0), vol_cap) for x in d_vols]
+        v = norm_vols[-1]
+
+        def _ema_series(series: List[float], period: int) -> List[float]:
             k = 2.0 / (period + 1.0)
-            res = series[0]
+            out = [series[0]]
             for val in series[1:]:
-                res = val * k + res * (1.0 - k)
-            return res
+                out.append(val * k + out[-1] * (1.0 - k))
+            return out
 
-        ema9 = _ema(closes, 9)
-        ema15 = _ema(closes, 15)
-        ema50 = _ema(closes, 60) if len(closes) >= 60 else ema15
-        ema200 = _ema(closes, 240) if len(closes) >= 240 else ema50
+        ema9 = _ema_series(closes, 9)[-1]
+        ema15 = _ema_series(closes, 15)[-1]
+        ema50 = _ema_series(closes, 60)[-1]
+        ema200 = _ema_series(closes, 240)[-1]
+        emad = _ema_series(closes, 1440)[-1]
+        emam = _ema_series(closes, 7200)[-1]
 
+        # 5m MACD histogram slope
+        ema12_5m = _ema_series(closes, 60)
+        ema26_5m = _ema_series(closes, 130)
+        macd_l = [a - b for a, b in zip(ema12_5m, ema26_5m)]
+        macd_s = _ema_series(macd_l, 45)
+        macd_h = [a - b for a, b in zip(macd_l, macd_s)]
+        macd_up = (macd_h[-1] > macd_h[-4]) if n_bars >= 4 else True
+        macd_dn = (macd_h[-1] < macd_h[-4]) if n_bars >= 4 else False
+
+        # Wick-to-body ratios (for Specialists) and wick-to-range ratios (for 16 Floor Agents)
         body = max(abs(c - o), 0.05)
         lw = max(0.0, min(o, c) - l) / body
         uw = max(0.0, h - max(o, c)) / body
+        rng_bar = max(h - l, 0.05)
+        lw_rng = max(0.0, min(o, c) - l) / rng_bar
+        uw_rng = max(0.0, h - max(o, c)) / rng_bar
+        body_ratio = abs(c - o) / rng_bar
+        bull_disp = (c > o) and (body_ratio >= 0.55)
+        bear_disp = (c < o) and (body_ratio >= 0.55)
 
-        prev_h = highs[-2] if len(highs) >= 2 else h
-        prev_l = lows[-2] if len(lows) >= 2 else l
+        prev_h = highs[-2] if n_bars >= 2 else h
+        prev_l = lows[-2] if n_bars >= 2 else l
         b_mss = (c > o) and (c > prev_h)
         s_mss = (c < o) and (c < prev_l)
 
+        # Delta-native 1m CLV + wick directional bar delta
         bar_deltas = []
-        for b in bars[-15:]:
+        cvd_vals = []
+        cvd_acc = 0.0
+        for b, v_n in zip(bars, norm_vols):
             bo, bh, bl, bc = float(b["open"]), float(b["high"]), float(b["low"]), float(b["close"])
-            bvol = float(b.get("volume", 1.0))
             brng = max(bh - bl, 1e-6)
             clv_body = (bc - bo) / brng
             clv_wick = ((min(bo, bc) - bl) - (bh - max(bo, bc))) / brng
             eff_bias = max(-1.0, min(1.0, 0.7 * clv_body + 0.3 * clv_wick))
-            v_norm = max(bvol / 1000.0, 1.0) if bvol > 50.0 else max(bvol, 1.0)
-            bar_deltas.append(eff_bias * v_norm * 0.45)
+            bd = eff_bias * v_n * 0.45
+            bar_deltas.append(bd)
+            cvd_acc += bd
+            cvd_vals.append(cvd_acc)
 
         d5 = sum(bar_deltas[-5:])
         d15 = sum(bar_deltas[-15:])
+        bd_win = bar_deltas[-min(30, n_bars):]
+        bd_mean = sum(bd_win) / len(bd_win)
+        bd_std = max((sum((x - bd_mean) ** 2 for x in bd_win) / len(bd_win)) ** 0.5, 1e-6)
+        delta_z = (bar_deltas[-1] - bd_mean) / bd_std
 
-        vol_win = vols[-min(60, len(vols)):]
+        vol_win = norm_vols[-min(60, n_bars):]
         mean_v = sum(vol_win) / len(vol_win)
-        var_v = sum((x - mean_v) ** 2 for x in vol_win) / len(vol_win)
-        std_v = max(var_v ** 0.5, 1.0)
+        std_v = max((sum((x - mean_v) ** 2 for x in vol_win) / len(vol_win)) ** 0.5, 1.0)
         vz = (v - mean_v) / std_v
 
-        h_src = highs[:-1] if len(highs) >= 5 else highs
-        l_src = lows[:-1] if len(lows) >= 5 else lows
+        # Rolling causal Support & Resistance windows
+        h_src = highs[:-1] if n_bars >= 5 else highs
+        l_src = lows[:-1] if n_bars >= 5 else lows
 
+        sh15 = max(h_src[-min(15, len(h_src)):])
+        sl15 = min(l_src[-min(15, len(l_src)):])
         sh20 = max(h_src[-min(20, len(h_src)):])
         sl20 = min(l_src[-min(20, len(l_src)):])
         rh60 = max(h_src[-min(60, len(h_src)):])
         rl60 = min(l_src[-min(60, len(l_src)):])
-        rpos60 = (c - rl60) / max(rh60 - rl60, 0.10)
+        rng_60 = max(rh60 - rl60, 0.10)
+        poc60_slice = sorted(closes[-min(61, n_bars):-1] if n_bars >= 5 else closes)
+        poc60 = poc60_slice[len(poc60_slice) // 2]
+        rpos60 = max(0.0, min(1.0, (c - rl60) / rng_60))
+        fib60_l = (rh60 - l) / rng_60
+        fib60_s = (h - rl60) / rng_60
+        room_h60 = max(0.10, rh60 - c)
+        room_l60 = max(0.10, c - rl60)
+
         rh120 = max(h_src[-min(120, len(h_src)):])
         rl120 = min(l_src[-min(120, len(l_src)):])
         rh240 = max(h_src[-min(240, len(h_src)):])
         rl240 = min(l_src[-min(240, len(l_src)):])
+        rng_240 = max(rh240 - rl240, 0.10)
+        bpos240 = max(0.0, min(1.0, (c - rl240) / max(rh240 - rl240, 1.0)))
+        fib240_l = (rh240 - l) / rng_240
+        fib240_s = (h - rl240) / rng_240
+        room_h240 = max(0.10, rh240 - c)
+        room_l240 = max(0.10, c - rl240)
+
         rh360 = max(h_src[-min(360, len(h_src)):])
         rl360 = min(l_src[-min(360, len(l_src)):])
-        swing_12_low = min(lows[-min(12, len(lows)):])
-        swing_12_high = max(highs[-min(12, len(highs)):])
+        swing_12_low = min(lows[-min(12, n_bars):])
+        swing_12_high = max(highs[-min(12, n_bars):])
+
+        # 1m ATR, 15m structural ATR (atr_5m), CHOP(14), ADX, KER, TER
+        tr1 = [highs[0] - lows[0]]
+        for i in range(1, n_bars):
+            tr1.append(max(highs[i] - lows[i], abs(highs[i] - closes[i - 1]), abs(lows[i] - closes[i - 1])))
+        atr_1m = sum(tr1[-min(14, n_bars):]) / min(14, n_bars)
+
+        tr15 = []
+        plus_dms = []
+        minus_dms = []
+        for i in range(n_bars):
+            i0 = max(0, i - 14)
+            h15_i = max(highs[i0:i + 1])
+            l15_i = min(lows[i0:i + 1])
+            c15_p = closes[max(0, i - 15)]
+            tr15.append(max(h15_i - l15_i, abs(h15_i - c15_p), abs(l15_i - c15_p)))
+            up_m = highs[i] - highs[max(0, i - 15)]
+            dn_m = -(lows[i] - lows[max(0, i - 15)])
+            plus_dms.append(up_m if (up_m > dn_m and up_m > 0) else 0.0)
+            minus_dms.append(dn_m if (dn_m > up_m and dn_m > 0) else 0.0)
+
+        w_210 = min(210, n_bars)
+        raw_atr_5m = sum(tr15[-w_210:]) / w_210
+        atr_5m = max(3.0, min(9.0, raw_atr_5m))
+        tr15_sum = sum(tr15[-1 - 15 * k] for k in range(14) if (n_bars - 1 - 15 * k) >= 0)
+        hl_range_210 = max(max(highs[-w_210:]) - min(lows[-w_210:]), 0.10)
+        chop = 100.0 * math.log10(max(tr15_sum / hl_range_210, 1.0)) / math.log10(14.0) if n_bars >= 210 else 48.0
+
+        atr_sm = max(raw_atr_5m, 0.10)
+        plus_di = 100.0 * (sum(plus_dms[-w_210:]) / w_210) / atr_sm
+        minus_di = 100.0 * (sum(minus_dms[-w_210:]) / w_210) / atr_sm
+        adx = 100.0 * abs(plus_di - minus_di) / max(plus_di + minus_di, 1.0) if (plus_di + minus_di) > 0 else 20.0
+
+        p_60 = sum(abs(closes[i] - closes[i - 1]) for i in range(max(1, n_bars - 60), n_bars))
+        ker_1h = abs(c - closes[-min(61, n_bars)]) / (p_60 + 1e-6) if n_bars >= 10 else 0.35
+        p_10 = sum(abs(closes[i] - closes[i - 1]) for i in range(max(1, n_bars - 10), n_bars))
+        ker_1m = abs(c - closes[-min(11, n_bars)]) / (p_10 + 1e-6) if n_bars >= 5 else 0.35
+        ter_ratio = max(rh60 - rl60, 1.0) / max(atr_1m, 0.25)
+
+        # RSI 5m (5-bar diff over 70 bars) & RSI 14
+        g5, l5 = [], []
+        for i in range(max(5, n_bars - 70), n_bars):
+            df5 = closes[i] - closes[i - 5]
+            g5.append(max(df5, 0.0))
+            l5.append(max(-df5, 0.0))
+        rsi5 = (100.0 - 100.0 / (1.0 + (sum(g5) / len(g5)) / max(sum(l5) / len(l5), 0.01))) if g5 else 50.0
+
+        g14, l14 = [], []
+        for i in range(max(1, n_bars - 14), n_bars):
+            df1 = closes[i] - closes[i - 1]
+            g14.append(max(df1, 0.0))
+            l14.append(max(-df1, 0.0))
+        rsi14 = (100.0 - 100.0 / (1.0 + (sum(g14) / len(g14)) / max(sum(l14) / len(l14), 1e-6))) if g14 else 50.0
+
+        # MTF ROC, CVD Divergence, FVG, Liquidity Sweeps, Stopping Vol & Absorption
+        roc_15m = c - closes[-min(16, n_bars)]
+        cvd_min_15 = min(cvd_vals[-min(16, n_bars):-1]) if n_bars >= 2 else cvd_vals[-1]
+        cvd_max_15 = max(cvd_vals[-min(16, n_bars):-1]) if n_bars >= 2 else cvd_vals[-1]
+        cvd_div_bull = (l <= sl15 + 0.30) and (cvd_vals[-1] > cvd_min_15)
+        cvd_div_bear = (h >= sh15 - 0.30) and (cvd_vals[-1] < cvd_max_15)
+
+        sh_8 = max(h_src[-min(8, len(h_src)):])
+        sl_8 = min(l_src[-min(8, len(l_src)):])
+        bos_bull = (c > sh_8) and (c > o)
+        bos_bear = (c < sl_8) and (c < o)
+        fvg_bull_gate = (n_bars >= 4) and (l <= highs[-4] + 0.60) and (c > o) and (c >= ema15)
+        fvg_bear_gate = (n_bars >= 4) and (h >= lows[-4] - 0.60) and (c < o) and (c <= ema15)
+
+        bull_fvg_win = False
+        bear_fvg_win = False
+        stop_b_win = False
+        stop_s_win = False
+        u_grab_win = False
+        l_grab_win = False
+        b_abs_win = False
+        s_abs_win = False
+
+        for j in range(max(2, n_bars - 10), n_bars):
+            bo_j, bh_j, bl_j, bc_j = opens[j], highs[j], lows[j], closes[j]
+            body_j = max(abs(bc_j - bo_j), 0.05)
+            lw_j = max(0.0, min(bo_j, bc_j) - bl_j) / body_j
+            uw_j = max(0.0, bh_j - max(bo_j, bc_j)) / body_j
+            vz_j = (norm_vols[j] - mean_v) / std_v
+            d5_j = sum(bar_deltas[max(0, j - 4):j + 1])
+            if (bl_j - highs[j - 2]) >= 0.30:
+                bull_fvg_win = True
+            if (lows[j - 2] - bh_j) >= 0.30:
+                bear_fvg_win = True
+            if vz_j >= 1.3 and lw_j >= 1.3:
+                stop_b_win = True
+            if vz_j >= 1.3 and uw_j >= 1.3:
+                stop_s_win = True
+            if bh_j >= rh60:
+                u_grab_win = True
+            if bl_j <= rl60:
+                l_grab_win = True
+            if j >= n_bars - 8:
+                if d5_j < 0 and (bc_j > bo_j or lw_j >= 1.5):
+                    b_abs_win = True
+                if d5_j > 0 and (bc_j < bo_j or uw_j >= 1.5):
+                    s_abs_win = True
+
+        # Liquidity heatmap scores & VWAP Z-score
+        l2_ratio = float(MARKET.l2_depth.get("ratio", 1.0))
+        l2_max = max(1.1, abs(l2_ratio) * 1.15)
+        spread = max(0.05, min(2.0, float(MARKET.l2_depth.get("spread", 0.12))))
+        near_eqh_60 = sum(1.0 for x in highs[-min(61, n_bars):-1] if abs(rh60 - x) <= 1.20)
+        near_eql_60 = sum(1.0 for x in lows[-min(61, n_bars):-1] if abs(x - rl60) <= 1.20)
+        vol_cluster = min(4.0, max(0.0, vz))
+        l2_ask_wall = min(2.0, max(0.5, 2.0 - l2_ratio)) * 18.0
+        l2_bid_wall = min(2.0, max(0.5, l2_ratio)) * 18.0
+        htf_align_hi = 16.0 if abs(rh240 - rh60) <= 2.50 else 6.0
+        htf_align_lo = 16.0 if abs(rl60 - rl240) <= 2.50 else 6.0
+        u_liq = max(10.0, min(99.0, 15.0 + near_eqh_60 * 6.5 + vol_cluster * 7.5 + l2_ask_wall + htf_align_hi))
+        l_liq = max(10.0, min(99.0, 15.0 + near_eql_60 * 6.5 + vol_cluster * 7.5 + l2_bid_wall + htf_align_lo))
+
+        l2_abs_bull = (lw_rng >= 0.30 and l2_ratio >= 1.04) or (l2_ratio >= 1.16)
+        l2_abs_bear = (uw_rng >= 0.30 and l2_ratio <= 0.96) or (l2_ratio <= 0.86)
+
+        tpv_sum = sum(((highs[i] + lows[i] + closes[i]) / 3.0) * norm_vols[i] for i in range(max(0, n_bars - 240), n_bars))
+        v_sum_vw = sum(norm_vols[max(0, n_bars - 240):]) + 1e-6
+        vwap = tpv_sum / v_sum_vw
+        c60 = closes[-min(60, n_bars):]
+        c60_m = sum(c60) / len(c60)
+        vwap_std = max((sum((x - c60_m) ** 2 for x in c60) / len(c60)) ** 0.5, 1e-6)
+        vwap_z = max(-4.0, min(4.0, (c - vwap) / vwap_std))
+
+        # Timestamp & session clocks
+        ts_val = int(bar_ts if bar_ts is not None else bars[-1].get("time", time.time()))
+        dt_utc = datetime.fromtimestamp(ts_val, tz=timezone.utc)
+        est_hr = (dt_utc.hour - 5) % 24
+        mins = dt_utc.minute
+        dow = dt_utc.weekday()
+
+        news_lock = ((est_hr == 8) and (25 <= mins <= 36) and ((h - l) >= 3.2 * atr_1m)) or ((h - l) >= 5.5 * atr_1m)
+        in_session = est_hr in (2, 3, 4, 5, 7, 8, 10, 11, 12, 15, 16, 17, 23)
+        kz_win = est_hr in (2, 3, 4, 5, 7, 8, 10, 11, 12)
+        sb_win = (est_hr in (3, 10, 15)) or (mins >= 50) or (mins <= 10)
+        sess = "LONDON" if (2 <= est_hr <= 7) else ("NEW_YORK" if (8 <= est_hr <= 12) else "ASIA")
 
         return {
             "o": o, "h": h, "l": l, "c": c, "v": v,
-            "ema9": ema9, "ema15": ema15, "ema50": ema50, "ema200": ema200,
-            "lw": lw, "uw": uw, "b_mss": b_mss, "s_mss": s_mss,
-            "d5": d5, "d15": d15, "vz": vz,
+            "ema9": ema9, "ema15": ema15, "ema50": ema50, "ema200": ema200, "emad": emad, "emam": emam,
+            "macd_up": macd_up, "macd_dn": macd_dn,
+            "lw": lw, "uw": uw, "lw_rng": lw_rng, "uw_rng": uw_rng,
+            "bull_disp": bull_disp, "bear_disp": bear_disp, "b_mss": b_mss, "s_mss": s_mss,
+            "d5": d5, "d15": d15, "delta_z": delta_z, "vz": vz,
+            "atr_1m": atr_1m, "atr_5m": atr_5m, "chop": chop, "adx": adx,
+            "ker_1h": ker_1h, "ker_1m": ker_1m, "ter_ratio": ter_ratio,
+            "rsi5": rsi5, "rsi14": rsi14, "roc_15m": roc_15m,
+            "cvd_div_bull": cvd_div_bull, "cvd_div_bear": cvd_div_bear,
+            "bos_bull": bos_bull, "bos_bear": bos_bear,
+            "fvg_bull_gate": fvg_bull_gate, "fvg_bear_gate": fvg_bear_gate,
+            "bull_fvg": bull_fvg_win, "bear_fvg": bear_fvg_win,
+            "stop_b": stop_b_win, "stop_s": stop_s_win,
+            "u_grab": u_grab_win, "l_grab": l_grab_win,
+            "b_abs": b_abs_win, "s_abs": s_abs_win,
+            "u_liq": u_liq, "l_liq": l_liq,
+            "l2_ratio": l2_ratio, "l2_max": l2_max, "spread": spread,
+            "l2_abs_bull": l2_abs_bull, "l2_abs_bear": l2_abs_bear, "vwap_z": vwap_z,
             "sh20": sh20, "sl20": sl20,
-            "rh60": rh60, "rl60": rl60, "rpos60": rpos60,
+            "rh60": rh60, "rl60": rl60, "poc60": poc60, "rpos60": rpos60,
+            "fib60_l": fib60_l, "fib60_s": fib60_s, "room_h60": room_h60, "room_l60": room_l60,
             "rh120": rh120, "rl120": rl120,
-            "rh240": rh240, "rl240": rl240,
+            "rh240": rh240, "rl240": rl240, "bpos240": bpos240,
+            "fib240_l": fib240_l, "fib240_s": fib240_s, "room_h240": room_h240, "room_l240": room_l240,
             "rh360": rh360, "rl360": rl360,
             "swing_12_low": swing_12_low, "swing_12_high": swing_12_high,
+            "est_hr": est_hr, "mins": mins, "dow": dow, "sess": sess,
+            "news_lock": news_lock, "in_session": in_session, "kz_win": kz_win, "sb_win": sb_win,
         }
 
     def _compute_sr_targets(
@@ -925,7 +1137,16 @@ class StrategyController:
                 lots = abs(size)
                 direction = pos["direction"]
                 qty_oz = round(lots * 0.001, 4)
-                sl_dist = 3.0
+
+                existing_stops = DELTA.fetch_open_stop_orders()
+                ctx_sync = self._compute_live_context()
+                if existing_stops and existing_stops[0].get("stop_price") is not None:
+                    sl_dist = round(max(3.0, min(12.0, abs(pos_entry - float(existing_stops[0]["stop_price"])))), 2)
+                else:
+                    atr_5m_sync = ctx_sync.get("atr_5m", 4.5) if ctx_sync else 4.5
+                    orig_sl_sync = max(3.8, min(11.0, 1.22 * atr_5m_sync))
+                    sl_dist = round(max(3.23, min(9.35, CONFIG["SL_MULT"] * orig_sl_sync)), 2)
+
                 init_sl = round(pos_entry - sl_dist, 2) if direction == "LONG" else round(pos_entry + sl_dist, 2)
                 margin_usd = round(float(pos.get("margin") or ((lots * 0.001 * pos_entry) / float(CONFIG["LEVERAGE"]))), 2)
 
@@ -1060,225 +1281,472 @@ class StrategyController:
                 MARKET.active_position = None
                 print(f"[SYNC CLOSED #{closed['id']}] Exchange flat detected ({exit_reason}) -> Exit @ ${exit_px:.2f} | Net: ${net:+.2f}")
 
+    def evaluate_16_floor_agents(self, ctx: Dict[str, Any], cand: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Polls all 16 Floor Agents at the latest closed bar and returns vetoes,
+        3-domain confirmation flags, and confirming agent roster.
+        """
+        c, o = ctx["c"], ctx["o"]
+        ker_1h, ter, bpos60 = ctx["ker_1h"], ctx["ter_ratio"], ctx["rpos60"]
+        est_hr, spread = ctx["est_hr"], ctx["spread"]
+        l2_5, l2_max = ctx["l2_ratio"], ctx["l2_max"]
+        vol_z, delta_z = ctx["vz"], ctx["delta_z"]
+        lw_rng, uw_rng = ctx["lw_rng"], ctx["uw_rng"]
+        vwap_z, rsi = ctx["vwap_z"], ctx["rsi14"]
+        ema15, ema50, ema200 = ctx["ema15"], ctx["ema50"], ctx["ema200"]
+
+        side = "BUY" if cand["direction"] == "LONG" else "SELL"
+        initiator = cand["initiator"]
+        tf = cand["tf"]
+
+        hard_vetoes = []
+        confirming_agents = [initiator]
+        domain_structure = True
+        domain_volume = False
+        domain_l2 = False
+
+        # 1:MARCUS (Macro Efficiency & Chop Guard)
+        if ker_1h < 0.14 and ter < 3.5 and tf == "1m":
+            hard_vetoes.append("1:MARCUS")
+        elif (side == "BUY" and c >= ema50) or (side == "SELL" and c <= ema50) or ker_1h >= 0.24:
+            confirming_agents.append("1:MARCUS")
+
+        # 2:ARTHUR (1H Dealing Range Ceiling/Floor Sentinel)
+        if side == "BUY" and bpos60 > 0.96 and ker_1h < 0.22 and initiator != "8:MAX":
+            hard_vetoes.append("2:ARTHUR")
+        elif side == "SELL" and bpos60 < 0.04 and ker_1h < 0.22 and initiator != "8:MAX":
+            hard_vetoes.append("2:ARTHUR")
+        elif (side == "BUY" and (bpos60 <= 0.84 or c > ema200)) or (side == "SELL" and (bpos60 >= 0.16 or c < ema200)):
+            confirming_agents.append("2:ARTHUR")
+
+        # 3:BEN (Red-Folder News Blast Shield)
+        if ctx["news_lock"]:
+            hard_vetoes.append("3:BEN")
+
+        # 4:OWEN (MTF Momentum & CVD Divergence)
+        if (side == "BUY" and (ctx["roc_15m"] >= -3.0 or ctx["cvd_div_bull"])) or (
+            side == "SELL" and (ctx["roc_15m"] <= 3.0 or ctx["cvd_div_bear"])
+        ):
+            confirming_agents.append("4:OWEN")
+
+        # 5:LEO, 6:KAI, 9:ELENA, 8:MAX Playbook Peer Confirmation & Opposing Check
+        opposing_setup = []
+        if side == "BUY":
+            if ctx["bos_bull"] or ctx["fvg_bull_gate"] or c >= ema15:
+                confirming_agents.append("6:KAI")
+            if bpos60 <= 0.52 or lw_rng >= 0.18:
+                confirming_agents.append("5:LEO")
+            if vwap_z <= 1.95:
+                confirming_agents.append("9:ELENA")
+            if c < ctx["rl60"] - 3.5 and delta_z < -2.8 and initiator != "5:LEO":
+                opposing_setup.append("8:MAX_SELL_BREAKDOWN")
+        else:
+            if ctx["bos_bear"] or ctx["fvg_bear_gate"] or c <= ema15:
+                confirming_agents.append("6:KAI")
+            if bpos60 >= 0.48 or uw_rng >= 0.18:
+                confirming_agents.append("5:LEO")
+            if vwap_z >= -1.95:
+                confirming_agents.append("9:ELENA")
+            if c > ctx["rh60"] + 3.5 and delta_z > 2.8 and initiator != "5:LEO":
+                opposing_setup.append("8:MAX_BUY_BREAKOUT")
+
+        # 10:ZOE (Killzone & Session Clock — Blocks 13:00-16:59 EST Midday Churn)
+        in_killzone = not (13 <= est_hr <= 16)
+        if in_killzone:
+            confirming_agents.append("10:ZOE")
+        else:
+            hard_vetoes.append("10:ZOE")
+
+        # 11:SAM (Order Book Depth & Imbalance L2 -> Domain 3)
+        if spread > 0.65:
+            hard_vetoes.append("11:SAM")
+        elif side == "BUY" and l2_5 < 0.45 and lw_rng < 0.25:
+            hard_vetoes.append("11:SAM")
+        elif side == "SELL" and l2_5 > 1.85 and uw_rng < 0.25:
+            hard_vetoes.append("11:SAM")
+        else:
+            if side == "BUY" and (l2_5 >= 0.72 or ctx["l2_abs_bull"] or l2_max >= 1.08 or lw_rng >= 0.16):
+                domain_l2 = True
+                confirming_agents.append("11:SAM")
+            elif side == "SELL" and (l2_5 <= 1.28 or ctx["l2_abs_bear"] or l2_max >= 1.08 or uw_rng >= 0.16):
+                domain_l2 = True
+                confirming_agents.append("11:SAM")
+
+        # 12:JACK (Volume Spread Analysis, Delta Z & Wicks -> Domain 2)
+        if vol_z < -1.65:
+            hard_vetoes.append("12:JACK")
+        else:
+            if side == "BUY" and (lw_rng >= 0.16 or delta_z >= -0.95 or vol_z >= -0.65 or c >= o):
+                domain_volume = True
+                confirming_agents.append("12:JACK")
+            elif side == "SELL" and (uw_rng >= 0.16 or delta_z <= 0.95 or vol_z >= -0.65 or c <= o):
+                domain_volume = True
+                confirming_agents.append("12:JACK")
+
+        # 13:CLARA (Anti-FOMO Extreme RSI Veto)
+        if (side == "BUY" and rsi >= 85.0) or (side == "SELL" and rsi <= 15.0):
+            hard_vetoes.append("13:CLARA")
+        else:
+            confirming_agents.append("13:CLARA")
+
+        return {
+            "hard_vetoes": hard_vetoes,
+            "opposing_setup": opposing_setup,
+            "in_killzone": in_killzone,
+            "domain_structure": domain_structure,
+            "domain_volume": domain_volume,
+            "domain_l2": domain_l2,
+            "confirming_agents": sorted(list(set(confirming_agents))),
+            "passed": (
+                not hard_vetoes
+                and not opposing_setup
+                and in_killzone
+                and domain_structure
+                and domain_volume
+                and domain_l2
+            ),
+        }
+
+    def _eval_specialists_and_pods(self, ctx: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Evaluates all 11 Field Specialists (1m/5m/15m/1h), 6 Synergistic Pods,
+        and the 24/7 Weekend (Sat & Sun) Dealing-Range Sweep Engine.
+        """
+        c, o, h, l = ctx["c"], ctx["o"], ctx["h"], ctx["l"]
+        ema9, ema15, ema50, ema200 = ctx["ema9"], ctx["ema15"], ctx["ema50"], ctx["ema200"]
+        emad, emam = ctx["emad"], ctx["emam"]
+        rsi5, vz, lw, uw = ctx["rsi5"], ctx["vz"], ctx["lw"], ctx["uw"]
+        b_mss, s_mss = ctx["b_mss"], ctx["s_mss"]
+        bull_disp, bear_disp = ctx["bull_disp"], ctx["bear_disp"]
+        fib60_l, fib60_s = ctx["fib60_l"], ctx["fib60_s"]
+        fib240_l, fib240_s = ctx["fib240_l"], ctx["fib240_s"]
+        chop, adx, d5, d15 = ctx["chop"], ctx["adx"], ctx["d5"], ctx["d15"]
+        poc60, rpos60, bpos240 = ctx["poc60"], ctx["rpos60"], ctx["bpos240"]
+        sh20, sl20 = ctx["sh20"], ctx["sl20"]
+        macd_up, macd_dn = ctx["macd_up"], ctx["macd_dn"]
+        bull_fvg, bear_fvg = ctx["bull_fvg"], ctx["bear_fvg"]
+        u_liq, l_liq = ctx["u_liq"], ctx["l_liq"]
+        u_grab, l_grab = ctx["u_grab"], ctx["l_grab"]
+        b_abs, s_abs = ctx["b_abs"], ctx["s_abs"]
+        stop_b, stop_s = ctx["stop_b"], ctx["stop_s"]
+        sb_win, kz_win = ctx["sb_win"], ctx["kz_win"]
+        est_hr, mins, dow = ctx["est_hr"], ctx["mins"], ctx["dow"]
+        is_5m = (mins % 5) == 0
+        is_15m = (mins % 15) == 0
+        is_1h = (mins == 0)
+
+        candidates = []
+
+        if dow < 5:
+            prime_hrs = est_hr in (2, 3, 4, 5, 8, 10, 11, 12, 18, 20, 21)
+            base_gate = (not ctx["news_lock"]) and prime_hrs and (ctx["spread"] <= 0.65)
+            rk_base = max(3.8, min(11.0, 1.25 * ctx["atr_5m"]))
+            rm_l = (ctx["room_h240"] >= 1.10 * rk_base) or (ctx["room_h60"] >= 1.00 * rk_base)
+            rm_s = (ctx["room_l240"] >= 1.10 * rk_base) or (ctx["room_l60"] >= 1.00 * rk_base)
+            is_london = (ctx["sess"] == "LONDON")
+
+            htf_bull = (
+                ((c > emam) and (ema200 > emad))
+                or ((c > emad) and (ema50 > ema200) and (chop < 52.5))
+                or ((c > ema200) and (ema15 > ema50) and (chop < 50.0) and (d5 > 0))
+            )
+            htf_bear = (
+                ((c < emam) and (ema50 < ema200))
+                or ((c < emad) and (ema50 < ema200) and (chop < 53.5))
+                or ((c < ema200) and (ema15 < ema50) and (chop < 51.0) and (d5 < 0))
+            )
+            sarah_l = (not is_london) and (chop < 53.5) and (35 <= rsi5 <= 66) and rm_l
+            sarah_s = (32 <= rsi5 <= 66) and rm_s
+            disc_l = (fib240_l >= 0.50) or (fib60_l >= 0.54)
+            prem_s = (fib240_s >= 0.50) or (fib60_s >= 0.54)
+            htf_disc_l = (fib240_l >= 0.57) or (fib60_l >= 0.61)
+            htf_prem_s = (fib240_s >= 0.57) or (fib60_s >= 0.61)
+
+            gate_l = base_gate and htf_bull and sarah_l and (c > ema15) and disc_l
+            gate_s = base_gate and htf_bear and sarah_s and (c < ema15) and prem_s
+            gate_htf_l = base_gate and htf_bull and sarah_l and (c > ema15) and htf_disc_l
+            gate_htf_s = base_gate and htf_bear and sarah_s and (c < ema15) and htf_prem_s
+            macro_bull_1h = (
+                (not ctx["news_lock"]) and ctx["in_session"] and (not is_london)
+                and (c > emam) and (ema200 > emad) and (c > ema15) and (chop < 53.2) and (rsi5 <= 65) and rm_l
+            )
+            macro_bear_1h = (
+                (not ctx["news_lock"]) and ctx["in_session"]
+                and (c < emam) and (ema50 < ema200) and (c < ema15) and (rsi5 >= 33) and rm_s
+            )
+
+            specialists = [
+                ("1:ALEX", "8:MAX", "MAX_TREND_PULLBACK", 3,
+                 (macd_up or (rsi5 >= 43)) and ((c > ema9) or (d5 > 0)) and (vz >= 0.50),
+                 (macd_dn or (rsi5 <= 57)) and ((c < ema9) or (d5 < 0)) and (vz >= 0.50),
+                 (fib240_l >= 0.56) and (macd_up or (rsi5 >= 40) or (d5 > 0)),
+                 (fib240_s >= 0.56) and (macd_dn or (rsi5 <= 60) or (d5 < 0)), 1.35),
+                ("2:MAYA", "5:LEO", "LEO_SWEEP_TRAP", 5,
+                 ((lw >= 1.15) or b_mss or bull_disp) and (vz >= 0.48),
+                 ((uw >= 1.15) or s_mss or bear_disp) and (vz >= 0.48),
+                 (fib240_l >= 0.56) and ((lw >= 1.12) or b_mss or (d5 > 0)),
+                 (fib240_s >= 0.56) and ((uw >= 1.12) or s_mss or (d5 < 0)), 1.35),
+                ("3:MARCUS", "8:MAX", "MAX_BOX_BREAKOUT", 4,
+                 (chop < 52.8) and ((rpos60 <= 0.64) or (fib240_l >= 0.50)) and ((lw >= 1.05) or b_mss or bull_disp or (d5 > 0)) and (vz >= 0.44),
+                 (chop < 53.4) and ((rpos60 >= 0.36) or (fib240_s >= 0.50)) and ((uw >= 1.05) or s_mss or bear_disp or (d5 < 0)) and (vz >= 0.44),
+                 (fib240_l >= 0.53) and (chop < 52.5) and ((rpos60 <= 0.58) or (d5 > 0)),
+                 (fib240_s >= 0.53) and (chop < 53.0) and ((rpos60 >= 0.42) or (d5 < 0)), 1.36),
+                ("4:NINA", "6:KAI", "KAI_FVG_BOS_RETEST", 4,
+                 (bull_fvg or (l <= sl20 * 1.0018) or (lw >= 1.18) or b_mss) and (vz >= 0.58),
+                 (bear_fvg or (h >= sh20 * 0.9982) or (uw >= 1.18) or s_mss) and (vz >= 0.58),
+                 (fib240_l >= 0.55) and (bull_fvg or (l <= sl20 * 1.002) or b_mss or (d5 > 0)),
+                 (fib240_s >= 0.55) and (bear_fvg or (h >= sh20 * 0.998) or s_mss or (d5 < 0)), 1.34),
+                ("5:MAX", "7:NINA", "NINA_RANGE_BOX_FADE", 4,
+                 ((rpos60 <= 0.58) or l_grab or (fib240_l >= 0.52)) and ((lw >= 1.10) or b_mss or (d5 > 0)) and (vz >= 0.64),
+                 ((rpos60 >= 0.42) or u_grab or (fib240_s >= 0.52)) and ((uw >= 1.10) or s_mss or (d5 < 0)) and (vz >= 0.64),
+                 (fib240_l >= 0.55) and ((rpos60 <= 0.52) or l_grab or (lw >= 1.10) or (d5 > 0)),
+                 (fib240_s >= 0.55) and ((rpos60 >= 0.48) or u_grab or (uw >= 1.10) or (d5 < 0)), 1.35),
+                ("6:SOPHIA", "5:LEO", "LEO_KILLZONE_SWEEP", 4,
+                 (kz_win or sb_win or (est_hr >= 18)) and (adx >= 14.5) and (vz >= 0.42),
+                 (kz_win or sb_win or (est_hr >= 18)) and (adx >= 14.5) and (vz >= 0.42),
+                 (fib240_l >= 0.57) and (kz_win or sb_win or (est_hr >= 18)) and ((lw >= 1.08) or b_mss or (d5 > 0)),
+                 (fib240_s >= 0.57) and (kz_win or sb_win or (est_hr >= 18)) and ((uw >= 1.08) or s_mss or (d5 < 0)), 1.35),
+                ("7:DEREK", "6:KAI", "KAI_SMC_OTE_TREND", 5,
+                 ((fib240_l >= 0.53) or (fib60_l >= 0.57)) and (fib240_l <= 0.86) and (vz >= 0.52),
+                 ((fib240_s >= 0.53) or (fib60_s >= 0.57)) and (fib240_s <= 0.86) and (vz >= 0.52),
+                 (fib240_l >= 0.58) and (fib240_l <= 0.85) and ((lw >= 1.05) or (d5 > 0)),
+                 (fib240_s >= 0.58) and (fib240_s <= 0.85) and ((uw >= 1.05) or (d5 < 0)), 1.36),
+                ("8:ELENA", "9:ELENA", "ELENA_VWAP_WICK_REV", 5,
+                 (c > ema9) and (b_mss or (lw >= 1.12)) and (vz >= 0.32),
+                 (c < ema9) and (s_mss or (uw >= 1.12)) and (vz >= 0.32),
+                 (fib240_l >= 0.57) and (c > ema9) and (b_mss or (lw >= 1.12) or (d5 > 0)),
+                 (fib240_s >= 0.57) and (c < ema9) and (s_mss or (uw >= 1.12) or (d5 < 0)), 1.32),
+                ("9:SAM", "5:LEO", "LEO_LIQUIDITY_TRAP", 3,
+                 ((l_liq >= 35.5) or (u_liq >= 37.5) or l_grab) and (vz >= 0.56),
+                 ((u_liq >= 35.5) or (l_liq >= 37.5) or u_grab) and (vz >= 0.56),
+                 (fib240_l >= 0.54) and ((l_liq >= 36.0) or (u_liq >= 38.0) or l_grab) and (d5 > 0),
+                 (fib240_s >= 0.54) and ((u_liq >= 36.0) or (l_liq >= 38.0) or u_grab) and (d5 < 0), 1.35),
+                ("10:OMAR", "8:MAX", "MAX_DELTA_MOMENTUM", 4,
+                 (((d5 > 0) and (d15 > 0)) or b_abs) and (vz >= 0.62),
+                 (((d5 < 0) and (d15 < 0)) or s_abs) and (vz >= 0.62),
+                 (fib240_l >= 0.56) and (((d5 > 0) and (d15 > 0)) or b_abs or (lw >= 1.15)),
+                 (fib240_s >= 0.56) and (((d5 < 0) and (d15 < 0)) or s_abs or (uw >= 1.15)), 1.35),
+                ("11:LIAM", "9:ELENA", "ELENA_VWAP_VSA_POCKET", 4,
+                 (stop_b or (vz >= 0.80)) and (vz >= 0.70),
+                 (stop_s or (vz >= 0.80)) and (vz >= 0.70),
+                 (fib240_l >= 0.55) and (stop_b or (vz >= 0.45) or (c <= poc60)) and ((lw >= 1.10) or b_mss or (d5 > 0)),
+                 (fib240_s >= 0.55) and (stop_s or (vz >= 0.45) or (c >= poc60)) and ((uw >= 1.10) or s_mss or (d5 < 0)), 1.35),
+            ]
+
+            spec_masks = {}
+            for aid, init_16, pb_style, prio, tl, ts_c, tl1h, ts1h, sl_m1 in specialists:
+                m1_l = gate_l and tl
+                m1_s = gate_s and ts_c
+                spec_masks[aid] = (m1_l, m1_s)
+
+                tf_checks = [
+                    ("1h", 4, is_1h and macro_bull_1h and tl1h, is_1h and macro_bear_1h and ts1h, 1.20),
+                    ("15m", 3, is_15m and gate_htf_l and tl, is_15m and gate_htf_s and ts_c, 1.22),
+                    ("5m", 2, is_5m and gate_htf_l and tl, is_5m and gate_htf_s and ts_c, 1.22),
+                    ("1m", 1, m1_l, m1_s, sl_m1),
+                ]
+                for tf_lbl, tf_rk, cond_l, cond_s, sl_m in tf_checks:
+                    if cond_l:
+                        candidates.append({
+                            "orig_agent": aid, "initiator": init_16, "playbook": pb_style,
+                            "pb_prio": prio, "direction": "LONG", "tf": tf_lbl,
+                            "tf_rank": tf_rk, "sl_mult": sl_m, "is_pod": False,
+                        })
+                    if cond_s:
+                        candidates.append({
+                            "orig_agent": aid, "initiator": init_16, "playbook": pb_style,
+                            "pb_prio": prio, "direction": "SHORT", "tf": tf_lbl,
+                            "tf_rank": tf_rk, "sl_mult": sl_m, "is_pod": False,
+                        })
+
+            pod_specs = [
+                ("POD_MARCUS_SOPHIA", "3:MARCUS", "6:SOPHIA", "8:MAX", "MAX_BOX_BREAKOUT", 4),
+                ("POD_MAYA_SAM", "2:MAYA", "9:SAM", "5:LEO", "LEO_LIQUIDITY_TRAP", 5),
+                ("POD_MAYA_LIAM", "2:MAYA", "11:LIAM", "9:ELENA", "ELENA_VWAP_VSA_POCKET", 5),
+                ("POD_SOPHIA_LIAM", "6:SOPHIA", "11:LIAM", "9:ELENA", "ELENA_VWAP_VSA_POCKET", 4),
+                ("POD_DEREK_OMAR", "7:DEREK", "10:OMAR", "6:KAI", "KAI_SMC_OTE_TREND", 5),
+                ("POD_NINA_MARCUS", "4:NINA", "3:MARCUS", "6:KAI", "KAI_FVG_BOS_RETEST", 4),
+            ]
+            for pod_name, ag_a, ag_b, init_16, pb_style, prio in pod_specs:
+                p1_l = spec_masks[ag_a][0] and spec_masks[ag_b][0]
+                p1_s = spec_masks[ag_a][1] and spec_masks[ag_b][1]
+                for tf_lbl, tf_rk, cond_l, cond_s, sl_m in [
+                    ("15m", 3, is_15m and p1_l, is_15m and p1_s, 1.22),
+                    ("5m", 2, is_5m and p1_l, is_5m and p1_s, 1.22),
+                    ("1m", 1, p1_l, p1_s, 1.35),
+                ]:
+                    if cond_l:
+                        candidates.append({
+                            "orig_agent": pod_name, "initiator": init_16, "playbook": pb_style,
+                            "pb_prio": prio, "direction": "LONG", "tf": tf_lbl,
+                            "tf_rank": tf_rk, "sl_mult": sl_m, "is_pod": True,
+                        })
+                    if cond_s:
+                        candidates.append({
+                            "orig_agent": pod_name, "initiator": init_16, "playbook": pb_style,
+                            "pb_prio": prio, "direction": "SHORT", "tf": tf_lbl,
+                            "tf_rank": tf_rk, "sl_mult": sl_m, "is_pod": True,
+                        })
+        else:
+            # 24/7 Weekend (Sat & Sun) Dealing-Range & Liquidity-Sweep Engine
+            wknd_mask = (not ctx["news_lock"]) and (ctx["spread"] <= 0.65) and (est_hr not in (13, 14, 15, 16, 17))
+            wknd_l = (
+                wknd_mask and (bpos240 <= 0.30) and (rpos60 <= 0.40) and (fib240_l >= 0.65)
+                and (chop < 53.5) and (c > o) and (c >= ema9) and ((lw >= 1.08) or b_mss) and (d5 > 0) and (vz >= 0.35)
+            )
+            wknd_s = (
+                wknd_mask and (bpos240 >= 0.70) and (rpos60 >= 0.60) and (fib240_s >= 0.65)
+                and (chop < 53.5) and (c < o) and (c <= ema9) and ((uw >= 1.08) or s_mss) and (d5 < 0) and (vz >= 0.35)
+            )
+            wknd_agents = [
+                ("2:MAYA", "5:LEO", "LEO_SWEEP_TRAP", 5, False),
+                ("11:LIAM", "9:ELENA", "ELENA_VWAP_VSA_POCKET", 5, False),
+                ("6:SOPHIA", "5:LEO", "LEO_KILLZONE_SWEEP", 5, False),
+                ("POD_MAYA_LIAM", "9:ELENA", "ELENA_VWAP_VSA_POCKET", 5, True),
+                ("POD_MAYA_SAM", "5:LEO", "LEO_SWEEP_TRAP", 5, True),
+                ("3:MARCUS", "8:MAX", "MAX_BOX_BREAKOUT", 4, False),
+                ("7:DEREK", "6:KAI", "KAI_SMC_OTE_TREND", 4, False),
+            ]
+            for aid, pb_ag, pb_st, pb_pr, is_pod in wknd_agents:
+                for tf_lbl, tf_rk, tf_active in [("15m", 3, is_15m), ("5m", 2, is_5m), ("1m", 1, True)]:
+                    if tf_active and wknd_l:
+                        candidates.append({
+                            "orig_agent": aid, "initiator": pb_ag, "playbook": pb_st,
+                            "pb_prio": pb_pr, "direction": "LONG", "tf": tf_lbl,
+                            "tf_rank": tf_rk, "sl_mult": 1.30, "is_pod": is_pod,
+                        })
+                    if tf_active and wknd_s:
+                        candidates.append({
+                            "orig_agent": aid, "initiator": pb_ag, "playbook": pb_st,
+                            "pb_prio": pb_pr, "direction": "SHORT", "tf": tf_lbl,
+                            "tf_rank": tf_rk, "sl_mult": 1.30, "is_pod": is_pod,
+                        })
+
+        return candidates
+
     def evaluate_signals(self, bar: Dict[str, Any]):
         """
-        Multi-agent floor consensus check:
-        Evaluates 👑 #1 Merged Super-Champion (>=4/6 + 15m Sniper):
-        - 16 Floor Agents & 11 Specialists (1m, 5m, 15m, 1h)
-        - 6 Champion Profiles Voting Consensus:
-          Rule: vote_count >= 4 or (tf == '15m' and CHAMP_4_SNIPER)
-        - Execution: Fixed $5.00 Risk, 50x Leverage Lots
+        Full 16-Agent + 11-Specialist + 6-Pod + 6-Champion Consensus Engine:
+        Evaluates #1 Merged Super-Champion (MERGE_1: >=4/6 Champions OR 15m CHAMP_4 Sniper)
+        with HTF priority, 0.85x structural SL calibration, and Merged A+B S/R targets.
         """
         bars = list(MARKET.bars_1m)
         if len(bars) < 30:
             return
 
-        closes = [float(b["close"]) for b in bars]
-        highs = [float(b["high"]) for b in bars]
-        lows = [float(b["low"]) for b in bars]
-        opens = [float(b["open"]) for b in bars]
-        vols = [float(b.get("volume", 1.0)) for b in bars]
+        bar_ts = int(bar.get("time", time.time()))
+        ctx = self._compute_live_context(bar_ts=bar_ts)
+        if not ctx:
+            return
 
-        c = closes[-1]
-        h = highs[-1]
-        l = lows[-1]
-        o = opens[-1]
-        v = vols[-1]
+        raw_cands = self._eval_specialists_and_pods(ctx)
+        if not raw_cands:
+            return
 
-        # Calculate True Range and ATR(14)
-        trs = []
-        for i in range(1, len(bars)):
-            ch = highs[i]
-            cl = lows[i]
-            pc = closes[i - 1]
-            trs.append(max(ch - cl, abs(ch - pc), abs(cl - pc)))
-        atr14 = sum(trs[-14:]) / 14.0 if len(trs) >= 14 else max(h - l, 3.5)
+        verified_cands = []
+        for cand in raw_cands:
+            ev = self.evaluate_16_floor_agents(ctx, cand)
+            if ev["passed"]:
+                cand["confirming_agents"] = ev["confirming_agents"]
+                verified_cands.append(cand)
 
-        # EMAs (9, 15, 50, 200)
-        def ema(series, period):
-            k = 2.0 / (period + 1.0)
-            res = series[0]
-            for val in series[1:]:
-                res = val * k + res * (1.0 - k)
-            return res
+        if not verified_cands:
+            return
 
-        ema9 = ema(closes, 9)
-        ema15 = ema(closes, 15)
-        ema50 = ema(closes, 50) if len(closes) >= 50 else ema15
-        ema200 = ema(closes, 200) if len(closes) >= 200 else ema50
+        R8_ELITE = {
+            "2:MAYA", "6:SOPHIA", "11:LIAM", "9:SAM",
+            "POD_MARCUS_SOPHIA", "POD_MAYA_SAM", "POD_MAYA_LIAM",
+        }
 
-        # Bar Geometry
-        rng = max(h - l, 0.05)
-        body = abs(c - o)
-        body_ratio = body / rng
-        bull_disp = (c > o) and (body_ratio >= 0.55)
-        bear_disp = (c < o) and (body_ratio >= 0.55)
-        lw = abs(min(o, c) - l) / rng
-        uw = abs(h - max(o, c)) / rng
+        chosen_best = None
+        chosen_votes = set()
+        for direc in ("LONG", "SHORT"):
+            d_cands = [x for x in verified_cands if x["direction"] == direc]
+            if not d_cands:
+                continue
+            d_cands.sort(key=lambda x: (-x["tf_rank"], -x["pb_prio"], -(1 if x["is_pod"] else 0), x["orig_agent"]))
+            best = d_cands[0]
 
-        # Volume Z-score
-        vol_slice = vols[-20:]
-        mean_v = sum(vol_slice) / len(vol_slice)
-        var_v = sum((x - mean_v) ** 2 for x in vol_slice) / len(vol_slice)
-        std_v = (var_v ** 0.5) if var_v > 0 else 1.0
-        vz = (v - mean_v) / std_v if std_v > 0 else 0.0
+            champ_votes = set()
+            if any(x["tf"] in ("1m", "5m") for x in d_cands):
+                champ_votes.add("CHAMP_1_MAX_PROFIT")
+                if any((x["tf"] == "5m" or len(x["confirming_agents"]) >= 5 or ctx["dow"] >= 5) for x in d_cands if x["tf"] in ("1m", "5m")):
+                    champ_votes.add("CHAMP_2_DAILY_100PCT_MEMORY")
+                if any(x["orig_agent"] in R8_ELITE for x in d_cands if x["tf"] in ("1m", "5m")):
+                    champ_votes.add("CHAMP_3_LOW_DD_ELITE")
+            if any(x["tf"] in ("5m", "15m", "1h") for x in d_cands):
+                champ_votes.add("CHAMP_4_MTF_80WR_SNIPER")
+                champ_votes.add("CHAMP_5_MTF_DAILY_SNIPER")
+            champ_votes.add("CHAMP_6_HIGH_CADENCE_4TF")
 
-        # RSI 5
-        gains, losses = 0.0, 0.0
-        for i in range(-5, 0):
-            diff = closes[i] - closes[i - 1]
-            if diff > 0: gains += diff
-            else: losses -= diff
-        rs = (gains / max(losses, 0.01))
-        rsi5 = 100.0 - (100.0 / (1.0 + rs))
+            is_merge1 = (len(champ_votes) >= 4) or (best["tf"] == "15m" and "CHAMP_4_MTF_80WR_SNIPER" in champ_votes)
+            if is_merge1:
+                if chosen_best is None or best["tf_rank"] > chosen_best["tf_rank"] or len(champ_votes) > len(chosen_votes):
+                    chosen_best = best
+                    chosen_votes = champ_votes
 
-        # Fibonacci / Relative Range
-        lookback_60 = min(60, len(bars))
-        h60 = max(highs[-lookback_60:])
-        l60 = min(lows[-lookback_60:])
-        r60 = max(h60 - l60, 0.1)
-        fib60_l = (h60 - c) / r60
-        fib60_s = (c - l60) / r60
+        if not chosen_best:
+            return
 
-        # Timeframe detection
-        now_dt = datetime.now(timezone.utc)
-        mins = now_dt.minute
-        is_5m = (mins % 5) == 0
-        is_15m = (mins % 15) == 0
-        is_1h = (mins == 0)
+        c = ctx["c"]
+        dir_to_fire = chosen_best["direction"]
+        tf_label = chosen_best["tf"]
+        setup_agent = chosen_best["orig_agent"]
+        playbook = chosen_best["playbook"]
 
-        # Specialist Signals
-        v_long = 0
-        v_short = 0
-        agents_fired = []
+        orig_sl_dist = max(3.8, min(11.0, chosen_best["sl_mult"] * ctx["atr_5m"]))
+        sl_dist = round(max(3.23, min(9.35, CONFIG["SL_MULT"] * orig_sl_dist)), 2)
+        init_sl = round(c - sl_dist, 2) if dir_to_fire == "LONG" else round(c + sl_dist, 2)
 
-        # 1. MAYA (Price Action & Sweep Trap)
-        if ((lw >= 1.15) or bull_disp) and (vz >= 0.48) and (fib60_l >= 0.50):
-            v_long += 1
-            agents_fired.append("2:MAYA")
-        if ((uw >= 1.15) or bear_disp) and (vz >= 0.48) and (fib60_s >= 0.50):
-            v_short += 1
-            agents_fired.append("2:MAYA")
+        qty_oz = round(CONFIG["FIXED_RISK_USD"] / sl_dist, 4)
+        delta_lots = max(1, round(qty_oz * 1000))
+        margin_50x = round((delta_lots * 0.001 * c) / float(CONFIG["LEVERAGE"]), 2)
 
-        # 2. SOPHIA (Macro Killzone & VWAP Pocket)
-        if (c > ema15) and (35 <= rsi5 <= 66) and (bull_disp or lw >= 1.05):
-            v_long += 1
-            agents_fired.append("6:SOPHIA")
-        if (c < ema15) and (32 <= rsi5 <= 66) and (bear_disp or uw >= 1.05):
-            v_short += 1
-            agents_fired.append("6:SOPHIA")
+        print(f"\n[👑 SUPER-CHAMPION MERGE_1 TRIGGER] {dir_to_fire} ({tf_label}) on XAUTUSD!")
+        print(f"Setup: {setup_agent} ({playbook}) | Floor Confirm: {len(chosen_best['confirming_agents'])}/16 | Champion Votes: {len(chosen_votes)}/6")
+        print(f"Price: {c:.2f} | SL: {init_sl:.2f} ({sl_dist} pts) | Lots: {delta_lots} | Margin: ${margin_50x:.2f}")
 
-        # 3. LIAM (Order Flow Absorption & Sweep Reversal)
-        if (lw >= 1.08) and (c > ema9) and (vz >= 0.40):
-            v_long += 1
-            agents_fired.append("11:LIAM")
-        if (uw >= 1.08) and (c < ema9) and (vz >= 0.40):
-            v_short += 1
-            agents_fired.append("11:LIAM")
+        order_res = DELTA.place_order(dir_to_fire, delta_lots, c, init_sl)
+        if not order_res.get("success", False):
+            print(f"[ORDER REJECTED] {dir_to_fire} {delta_lots} Lots aborted: {order_res.get('error', 'Unknown error')}")
+            return
 
-        # 4. MARCUS (Box Breakout)
-        lookback_20 = min(20, len(bars) - 1)
-        h20_prev = max(highs[-lookback_20 - 1:-1])
-        l20_prev = min(lows[-lookback_20 - 1:-1])
-        if (c > h20_prev) and (vz >= 0.44):
-            v_long += 1
-            agents_fired.append("3:MARCUS")
-        if (c < l20_prev) and (vz >= 0.44):
-            v_short += 1
-            agents_fired.append("3:MARCUS")
+        fill_raw = order_res.get("result", {}).get("average_fill_price") if isinstance(order_res.get("result"), dict) else None
+        fill_px = round(float(fill_raw), 2) if fill_raw else c
+        init_sl = round(fill_px - sl_dist, 2) if dir_to_fire == "LONG" else round(fill_px + sl_dist, 2)
+        sr_info = self._compute_sr_targets(fill_px, sl_dist, dir_to_fire, ctx)
 
-        # 5. ELENA (VWAP Wick Reversal)
-        if (c > ema15) and (lw >= 1.10) and (rsi5 >= 40):
-            v_long += 1
-            agents_fired.append("8:ELENA")
-        if (c < ema15) and (uw >= 1.10) and (rsi5 <= 60):
-            v_short += 1
-            agents_fired.append("8:ELENA")
-
-        # 6. POD CONFLUENCE (Maya + Liam or Marcus + Sophia)
-        if "2:MAYA" in agents_fired and "11:LIAM" in agents_fired:
-            if ((lw >= 1.15) or bull_disp): v_long += 1
-            if ((uw >= 1.15) or bear_disp): v_short += 1
-            agents_fired.append("POD_MAYA_LIAM")
-
-        # 7. SAM (Agent 9: 1-Second Live L2 Orderbook Imbalance Confirmation)
-        l2_ratio = MARKET.l2_depth.get("ratio", 1.0)
-        if l2_ratio >= 1.35 and v_long >= 2:
-            v_long += 1
-            agents_fired.append("9:SAM_L2_IMBALANCE")
-        elif l2_ratio <= 0.74 and v_short >= 2:
-            v_short += 1
-            agents_fired.append("9:SAM_L2_IMBALANCE")
-
-        # 15m Structural Sniper (CHAMP_4)
-        is_champ4_long = is_15m and (c > ema50) and (lw >= 1.05 or bull_disp) and (fib60_l >= 0.50)
-        is_champ4_short = is_15m and (c < ema50) and (uw >= 1.05 or bear_disp) and (fib60_s >= 0.50)
-
-        # Quorum Evaluation: >=4/6 Champion Consensus OR 15m Sniper
-        dir_to_fire = None
-        tf_label = "15m" if is_15m else ("5m" if is_5m else "1m")
-        setup_agent = agents_fired[0] if agents_fired else "CHAMP_4_SNIPER"
-
-        if v_long >= 4 or is_champ4_long:
-            dir_to_fire = "LONG"
-        elif v_short >= 4 or is_champ4_short:
-            dir_to_fire = "SHORT"
-
-        if dir_to_fire:
-            sl_dist = round(max(3.0, min(12.0, CONFIG["SL_MULT"] * atr14)), 2)
-            init_sl = round(c - sl_dist, 2) if dir_to_fire == "LONG" else round(c + sl_dist, 2)
-            
-            # Sizing calculation for fixed $5.00 risk & 50x leverage
-            qty_oz = round(CONFIG["FIXED_RISK_USD"] / sl_dist, 4)
-            delta_lots = max(1, round(qty_oz * 1000))
-            margin_50x = round((delta_lots * 0.001 * c) / float(CONFIG["LEVERAGE"]), 2)
-
-            print(f"\n[👑 SUPER-CHAMPION TRIGGER] {dir_to_fire} Signal on XAUTUSD!")
-            print(f"Agents: {', '.join(agents_fired)} | Votes: {max(v_long, v_short)}/6 | 15m Sniper: {is_champ4_long or is_champ4_short}")
-            print(f"Price: {c:.2f} | SL: {init_sl:.2f} ({sl_dist} pts) | Lots: {delta_lots} | Margin: ${margin_50x:.2f}")
-
-            # Execute Order on Delta Exchange India
-            order_res = DELTA.place_order(dir_to_fire, delta_lots, c, init_sl)
-            if not order_res.get("success", False):
-                print(f"[ORDER REJECTED] {dir_to_fire} {delta_lots} Lots aborted: {order_res.get('error', 'Unknown error')}")
-                return
-
-            fill_raw = order_res.get("result", {}).get("average_fill_price") if isinstance(order_res.get("result"), dict) else None
-            fill_px = round(float(fill_raw), 2) if fill_raw else c
-            init_sl = round(fill_px - sl_dist, 2) if dir_to_fire == "LONG" else round(fill_px + sl_dist, 2)
-            sr_info = self._compute_sr_targets(fill_px, sl_dist, dir_to_fire)
-
-            MARKET.active_position = {
-                "id": len(MARKET.closed_trades) + 1,
-                "direction": dir_to_fire,
-                "tf": tf_label,
-                "setup_agent": setup_agent,
-                "playbook": "LEO_SWEEP_TRAP" if "2:MAYA" in agents_fired else "CHAMP_4_MTF_SNIPER",
-                "entry_price": fill_px,
-                "current_price": fill_px,
-                "init_sl": init_sl,
-                "cur_sl": init_sl,
-                "sl_dist": sl_dist,
-                "qty_oz": qty_oz,
-                "delta_lots": delta_lots,
-                "margin_50x_usd": margin_50x,
-                "entry_time": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
-                "entry_ts": int(time.time()),
-                "hold_mins": 0,
-                "peak_fav": 0.0,
-                "peak_bar": 0,
-                "stage": 0,
-                "stall_locked": False,
-                "stage_reason": "",
-                "pts": 0.0,
-                "r_multiple": 0.0,
-                "fee_usd": round(0.0002 * qty_oz * fill_px, 2),
-                "unrealized_pnl_usd": 0.0,
-                "sl_order_id": None,
-                "exchange_sl_price": None,
-                **sr_info,
-            }
-            DELTA.sync_exchange_sl(dir_to_fire, delta_lots, init_sl, MARKET.active_position)
+        MARKET.active_position = {
+            "id": len(MARKET.closed_trades) + 1,
+            "direction": dir_to_fire,
+            "tf": tf_label,
+            "setup_agent": setup_agent,
+            "playbook": playbook,
+            "entry_price": fill_px,
+            "current_price": fill_px,
+            "init_sl": init_sl,
+            "cur_sl": init_sl,
+            "sl_dist": sl_dist,
+            "qty_oz": qty_oz,
+            "delta_lots": delta_lots,
+            "margin_50x_usd": margin_50x,
+            "entry_time": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
+            "entry_ts": int(time.time()),
+            "hold_mins": 0,
+            "peak_fav": 0.0,
+            "peak_bar": 0,
+            "stage": 0,
+            "stall_locked": False,
+            "stage_reason": "",
+            "pts": 0.0,
+            "r_multiple": 0.0,
+            "fee_usd": round(0.0002 * qty_oz * fill_px, 2),
+            "unrealized_pnl_usd": 0.0,
+            "sl_order_id": None,
+            "exchange_sl_price": None,
+            **sr_info,
+        }
+        DELTA.sync_exchange_sl(dir_to_fire, delta_lots, init_sl, MARKET.active_position)
 
 STRATEGY = StrategyController()
 
@@ -1525,6 +1993,8 @@ def stream_l2_every_second():
     STRATEGY.sync_exchange_position()
     cur_min = -1
     cur_bar = None
+    bar_vol_sum = 0.0
+    bar_ticks = 0
     tick_count = 0
     last_sync_ts = time.time()
 
@@ -1551,24 +2021,30 @@ def stream_l2_every_second():
                     STRATEGY.on_tick(mid_px)
 
                 # 3. Build live 1m candle bar in RAM (Zero Disk Usage)
+                top5_depth = sum(b[1] for b in bids[:5]) + sum(a[1] for a in asks[:5])
                 if cur_bar is None or m_now != cur_min:
                     if cur_bar is not None:
+                        cur_bar["volume"] = round(bar_vol_sum / max(bar_ticks, 1), 2)
                         # Minute closed -> Send completed bar to strategy controller
                         STRATEGY.on_bar_close(cur_bar)
                     cur_min = m_now
+                    bar_vol_sum = top5_depth
+                    bar_ticks = 1
                     cur_bar = {
                         "time": int(now_dt.timestamp()),
                         "open": mid_px,
                         "high": mid_px,
                         "low": mid_px,
                         "close": mid_px,
-                        "volume": sum(b[1] for b in bids[:5]) + sum(a[1] for a in asks[:5])
+                        "volume": top5_depth,
                     }
                 else:
                     cur_bar["high"] = max(cur_bar["high"], mid_px)
                     cur_bar["low"] = min(cur_bar["low"], mid_px)
                     cur_bar["close"] = mid_px
-                    cur_bar["volume"] += sum(b[1] for b in bids[:5])
+                    bar_vol_sum += top5_depth
+                    bar_ticks += 1
+                    cur_bar["volume"] = round(bar_vol_sum / max(bar_ticks, 1), 2)
 
                 tick_count += 1
                 if tick_count % 15 == 0:
