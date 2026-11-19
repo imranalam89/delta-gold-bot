@@ -156,7 +156,7 @@ body { background-color: #07090e; color: #f1f5f9; font-family: system-ui, -apple
   <div class="glass-card rounded-2xl p-4 border-l-4 border-l-emerald-500">
     <span class="text-slate-400 text-xs block mb-1">Delta Collateral Balance</span>
     <span id="statUsdBal" class="text-2xl font-extrabold text-emerald-400">$100.00</span>
-    <span class="text-[11px] text-slate-500 block mt-1">Live Delta Wallet</span>
+    <span id="statAvailMargin" class="text-[11px] text-slate-500 block mt-1">Live Delta Wallet</span>
   </div>
   <div class="glass-card rounded-2xl p-4 border-l-4 border-l-cyan-500">
     <span class="text-slate-400 text-xs block mb-1">Leverage Applied</span>
@@ -275,6 +275,7 @@ let calCurrentYear = 2026;
 let calCurrentMonth = 10; // 0-indexed: 10 = Nov
 let selectedCalDate = null;
 let cachedTrades = [];
+let activePositionData = null;
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
@@ -436,9 +437,47 @@ function renderTradesTable() {
     list = cachedTrades.filter(t => (t.date === selectedCalDate) || ((t.entry_time || '').startsWith(selectedCalDate)));
   }
 
-  document.getElementById('ledgerCount').innerText = `Showing ${list.length} / ${cachedTrades.length} Trades`;
+  let activeRowHtml = '';
+  let activeCountForView = 0;
+  if (activePositionData) {
+    const pos = activePositionData;
+    const posDateMatch = !selectedCalDate || (pos.entry_time || '').startsWith(selectedCalDate);
+    if (posDateMatch) {
+      activeCountForView = 1;
+      const curPx = pos.current_price || pos.entry_price || 0;
+      const pts = pos.pts || 0;
+      const rMult = pos.r_multiple || 0;
+      const fee = pos.fee_usd || 0;
+      const upnl = pos.unrealized_pnl_usd || 0;
+      const isUp = upnl >= 0;
+      const tradeNum = pos.id || (cachedTrades.length + 1);
+      activeRowHtml = `
+        <tr class="bg-emerald-500/5 hover:bg-emerald-500/10 transition border-l-2 border-l-emerald-400">
+          <td class="py-2.5 px-3 text-emerald-400 font-bold">#${tradeNum}</td>
+          <td class="py-2.5 px-3 text-slate-300">${(pos.entry_time || '').slice(0, 16)}</td>
+          <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${pos.direction === 'LONG' ? 'badge-long' : 'badge-short'}">${pos.direction}</span></td>
+          <td class="py-2.5 px-3 text-slate-300">${pos.tf || '15m'}</td>
+          <td class="py-2.5 px-3 font-bold text-white">${pos.setup_agent || '2:MAYA'}</td>
+          <td class="py-2.5 px-3 text-white font-semibold">$${(pos.entry_price || 0).toFixed(2)}</td>
+          <td class="py-2.5 px-3 text-cyan-300 font-semibold">$${curPx.toFixed(2)} <span class="text-[9px] text-slate-400">(Live)</span></td>
+          <td class="py-2.5 px-3 text-amber-400">$${(pos.cur_sl || pos.init_sl || 0).toFixed(2)}</td>
+          <td class="py-2.5 px-3 text-amber-400 font-bold">${pos.delta_lots || 0} <span class="text-slate-500 text-[10px]">($${(pos.margin_50x_usd || 0).toFixed(1)})</span></td>
+          <td class="py-2.5 px-3 ${pts >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${pts >= 0 ? '+' : ''}${pts.toFixed(2)}</td>
+          <td class="py-2.5 px-3 ${rMult >= 0 ? 'text-emerald-400' : 'text-rose-400'} font-bold">${rMult >= 0 ? '+' : ''}${rMult.toFixed(2)}R</td>
+          <td class="py-2.5 px-3 text-rose-400">-$${fee.toFixed(2)}</td>
+          <td class="py-2.5 px-3 ${isUp ? 'text-emerald-400' : 'text-rose-400'} font-bold">${isUp ? '+' : ''}$${upnl.toFixed(2)}</td>
+          <td class="py-2.5 px-3 text-cyan-300">${pos.hold_mins || 0}m</td>
+          <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 animate-pulse">🟢 LIVE RUNNING</span></td>
+        </tr>
+      `;
+    }
+  }
 
-  tbody.innerHTML = list.map(t => {
+  const totalTradesAll = cachedTrades.length + (activePositionData ? 1 : 0);
+  const shownCount = list.length + activeCountForView;
+  document.getElementById('ledgerCount').innerText = `Showing ${shownCount} / ${totalTradesAll} Trades`;
+
+  const closedHtml = [...list].reverse().map(t => {
     const isWin = (t.net_pnl_usd || 0) >= 0;
     const reasonCls = (t.exit_reason || '').includes('TIME') ? 'badge-time' : ((t.exit_reason || '').includes('TRAIL') ? 'badge-trail' : ((t.exit_reason || '').includes('STALL') ? 'badge-stall' : 'badge-sl'));
     return `
@@ -461,6 +500,8 @@ function renderTradesTable() {
       </tr>
     `;
   }).join('');
+
+  tbody.innerHTML = activeRowHtml + closedHtml;
 }
 
 async function refreshData() {
@@ -469,7 +510,11 @@ async function refreshData() {
     if (res.ok) {
       const data = await res.json();
       document.getElementById('hdrAccount').innerText = data.delta_account || '74634658';
-      document.getElementById('statUsdBal').innerText = `$${(data.available_balance_usd || 100.0).toFixed(2)}`;
+      const totalBal = data.wallet_balance_usd !== undefined ? data.wallet_balance_usd : (data.available_balance_usd || 0.0);
+      const availMargin = data.available_balance_usd !== undefined ? data.available_balance_usd : 0.0;
+      document.getElementById('statUsdBal').innerText = `$${totalBal.toFixed(2)}`;
+      const availEl = document.getElementById('statAvailMargin');
+      if (availEl) availEl.innerText = `Avail Free Margin: $${availMargin.toFixed(2)}`;
       document.getElementById('connStatus').innerText = 'CONNECTED (RAM Buffer: 0 MB Disk)';
       
       engineActive = data.engine_active;
@@ -485,20 +530,26 @@ async function refreshData() {
 
       // Active Position
       const pos = data.active_position;
+      activePositionData = pos || null;
       const posBox = document.getElementById('activePositionBox');
       const badge = document.getElementById('activeBadge');
       if (pos) {
-        badge.innerText = '1 Open';
+        const curPx = pos.current_price || pos.entry_price || 0;
+        const upnl = pos.unrealized_pnl_usd || 0;
+        const rmult = pos.r_multiple || 0;
+        const tradeNum = pos.id || (cachedTrades.length + 1);
+        badge.innerText = `Trade #${tradeNum} (LIVE RUNNING)`;
         badge.className = 'px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 font-mono';
         document.getElementById('statOpenCount').innerText = '1 / 1';
         posBox.innerHTML = `
-          <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 text-left">
-            <div><span class="text-slate-500 text-[10px] block">Direction</span><strong class="${pos.direction === 'LONG' ? 'text-emerald-400' : 'text-rose-400'}">${pos.direction}</strong></div>
-            <div><span class="text-slate-500 text-[10px] block">Entry Price</span><strong class="text-white">$${pos.entry_price.toFixed(2)}</strong></div>
-            <div><span class="text-slate-500 text-[10px] block">Current SL</span><strong class="text-amber-400">$${pos.cur_sl.toFixed(2)}</strong></div>
-            <div><span class="text-slate-500 text-[10px] block">Lots (50x)</span><strong class="text-amber-400">${pos.delta_lots} Lots</strong> <span class="text-slate-500 text-[10px]">($${pos.margin_50x_usd.toFixed(1)})</span></div>
-            <div><span class="text-slate-500 text-[10px] block">Hold Time</span><strong class="text-cyan-400">${pos.hold_mins}m / 180m</strong></div>
-            <div><span class="text-slate-500 text-[10px] block">Setup Agent</span><strong class="text-purple-400">${pos.setup_agent}</strong></div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3 text-left">
+            <div><span class="text-slate-500 text-[10px] block">Trade # / Dir</span><strong class="${pos.direction === 'LONG' ? 'text-emerald-400' : 'text-rose-400'}">#${tradeNum} ${pos.direction}</strong></div>
+            <div><span class="text-slate-500 text-[10px] block">Entry Price</span><strong class="text-white">$${(pos.entry_price || 0).toFixed(2)}</strong></div>
+            <div><span class="text-slate-500 text-[10px] block">Live Mark Price</span><strong class="text-cyan-300">$${curPx.toFixed(2)}</strong></div>
+            <div><span class="text-slate-500 text-[10px] block">Current SL</span><strong class="text-amber-400">$${(pos.cur_sl || 0).toFixed(2)}</strong></div>
+            <div><span class="text-slate-500 text-[10px] block">Lots (50x)</span><strong class="text-amber-400">${pos.delta_lots} Lots</strong> <span class="text-slate-500 text-[10px]">($${(pos.margin_50x_usd || 0).toFixed(1)})</span></div>
+            <div><span class="text-slate-500 text-[10px] block">Live Unrealized P&amp;L</span><strong class="${upnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${upnl >= 0 ? '+' : ''}$${upnl.toFixed(2)} (${rmult >= 0 ? '+' : ''}${rmult.toFixed(2)}R)</strong></div>
+            <div><span class="text-slate-500 text-[10px] block">Hold / Agent</span><strong class="text-purple-400">${pos.hold_mins || 0}m / 180m · ${pos.setup_agent}</strong></div>
           </div>
         `;
       } else {
@@ -517,7 +568,8 @@ async function refreshData() {
     const res = await fetch('/api/trades');
     if (res.ok) {
       cachedTrades = await res.json();
-      document.getElementById('statTradesCount').innerText = `${cachedTrades.length} Trades Banked`;
+      const liveSuffix = activePositionData ? ' (+1 Live)' : '';
+      document.getElementById('statTradesCount').innerText = `${cachedTrades.length} Trades Banked${liveSuffix}`;
       
       const totNet = cachedTrades.reduce((sum, t) => sum + (t.net_pnl_usd || 0), 0);
       document.getElementById('statNetPnl').innerText = `${totNet >= 0 ? '+' : ''}$${totNet.toFixed(2)}`;
@@ -528,6 +580,7 @@ async function refreshData() {
     }
   } catch (e) {
     console.log('Trades fetch error:', e);
+    renderTradesTable();
   }
 }
 
