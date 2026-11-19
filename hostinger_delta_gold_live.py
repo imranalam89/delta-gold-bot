@@ -42,7 +42,7 @@ def load_config() -> Dict[str, Any]:
         "SYMBOL": "XAUTUSD",
         "PRODUCT_ID": 131253,
         "LEVERAGE": 50,
-        "FIXED_RISK_USD": 5.0,
+        "FIXED_RISK_USD": 2.0,
         "MAX_HOLD_MINS": 180,
         "SL_MULT": 0.85,
     }
@@ -552,6 +552,41 @@ class StrategyController:
                 fee = round(0.0001 * qty_oz * (pos_entry + cur_px), 2)
                 upnl = round(float(pos.get("unrealized_pnl") or (pts * qty_oz - fee)), 2)
 
+                if direction == "LONG":
+                    hist_favs = [float(b["high"]) - pos_entry for b in MARKET.bars_1m if int(b.get("time", 0)) >= entry_ts]
+                else:
+                    hist_favs = [pos_entry - float(b["low"]) for b in MARKET.bars_1m if int(b.get("time", 0)) >= entry_ts]
+                peak_fav = round(max([0.0, pts] + hist_favs), 2)
+                mfe_r = peak_fav / sl_dist if sl_dist > 0 else 0.0
+
+                cur_sl = init_sl
+                stage = 0
+                stage_reason = ""
+                if mfe_r >= 2.10:
+                    if direction == "LONG":
+                        trail_px = round(pos_entry + (mfe_r - 0.85) * sl_dist, 2)
+                        be_px = round(pos_entry + 0.45 * sl_dist, 2)
+                        if trail_px > cur_sl and trail_px < cur_px:
+                            cur_sl, stage, stage_reason = trail_px, 4, "CONTINUOUS_40R_SL_TRAIL"
+                        elif be_px > cur_sl and be_px < cur_px:
+                            cur_sl, stage, stage_reason = be_px, 2, "BREAKEVEN"
+                    else:
+                        trail_px = round(pos_entry - (mfe_r - 0.85) * sl_dist, 2)
+                        be_px = round(pos_entry - 0.45 * sl_dist, 2)
+                        if trail_px < cur_sl and trail_px > cur_px:
+                            cur_sl, stage, stage_reason = trail_px, 4, "CONTINUOUS_40R_SL_TRAIL"
+                        elif be_px < cur_sl and be_px > cur_px:
+                            cur_sl, stage, stage_reason = be_px, 2, "BREAKEVEN"
+                elif mfe_r >= 1.05:
+                    if direction == "LONG":
+                        be_px = round(pos_entry + 0.45 * sl_dist, 2)
+                        if be_px > cur_sl and be_px < cur_px:
+                            cur_sl, stage, stage_reason = be_px, 2, "BREAKEVEN"
+                    else:
+                        be_px = round(pos_entry - 0.45 * sl_dist, 2)
+                        if be_px < cur_sl and be_px > cur_px:
+                            cur_sl, stage, stage_reason = be_px, 2, "BREAKEVEN"
+
                 MARKET.active_position = {
                     "id": len(MARKET.closed_trades) + 1,
                     "direction": direction,
@@ -561,7 +596,7 @@ class StrategyController:
                     "entry_price": pos_entry,
                     "current_price": cur_px,
                     "init_sl": init_sl,
-                    "cur_sl": init_sl,
+                    "cur_sl": cur_sl,
                     "sl_dist": sl_dist,
                     "qty_oz": qty_oz,
                     "delta_lots": lots,
@@ -569,10 +604,10 @@ class StrategyController:
                     "entry_time": entry_time_str,
                     "entry_ts": entry_ts,
                     "hold_mins": max(0, int((time.time() - entry_ts) // 60)),
-                    "peak_fav": max(0.0, pts),
+                    "peak_fav": peak_fav,
                     "peak_bar": 0,
-                    "stage": 0,
-                    "stage_reason": "",
+                    "stage": stage,
+                    "stage_reason": stage_reason,
                     "pts": pts,
                     "r_multiple": round(pts / sl_dist, 2),
                     "fee_usd": fee,
@@ -1035,27 +1070,29 @@ def fetch_initial_candles():
         with urllib.request.urlopen(req, timeout=10) as r:
             res = json.loads(r.read().decode("utf-8"))
             candles = res.get("result", [])
+            parsed_bars = []
             for c in candles:
                 if isinstance(c, dict):
-                    bar = {
-                        "time": c.get("time", c.get("timestamp", 0)),
+                    parsed_bars.append({
+                        "time": int(c.get("time", c.get("timestamp", 0))),
                         "open": float(c.get("open", 0)),
                         "high": float(c.get("high", 0)),
                         "low": float(c.get("low", 0)),
                         "close": float(c.get("close", 0)),
                         "volume": float(c.get("volume", 1.0))
-                    }
-                    MARKET.append_bar(bar)
+                    })
                 elif isinstance(c, (list, tuple)) and len(c) >= 6:
-                    bar = {
-                        "time": c[0],
+                    parsed_bars.append({
+                        "time": int(c[0]),
                         "open": float(c[1]),
                         "high": float(c[2]),
                         "low": float(c[3]),
                         "close": float(c[4]),
                         "volume": float(c[5])
-                    }
-                    MARKET.append_bar(bar)
+                    })
+            parsed_bars.sort(key=lambda b: b["time"])
+            for bar in parsed_bars:
+                MARKET.append_bar(bar)
             print(f"[CANDLE PRIMER] Successfully primed {len(MARKET.bars_1m)} historical 1m bars from Delta Exchange.")
     except Exception as e:
         print(f"[CANDLE PRIMER] Initial candle fetch notice: {e}")
