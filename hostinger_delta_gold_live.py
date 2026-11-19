@@ -263,12 +263,12 @@ class DeltaExchangeClient:
             pass
         return {"success": False, "bids": [], "asks": []}
 
-    def _post_order(self, payload_dict: Dict[str, Any], tag: str) -> Dict[str, Any]:
-        """Sends a signed POST /v2/orders request to Delta Exchange and captures HTTP error bodies."""
-        path = "/v2/orders"
+    def _request(self, method: str, path: str, payload_dict: Optional[Dict[str, Any]] = None, tag: str = "DELTA API") -> Dict[str, Any]:
+        """Sends a signed REST request (GET/POST/PUT/DELETE) to Delta Exchange and captures HTTP error bodies."""
         url = self.base_url + path
-        payload = json.dumps(payload_dict)
-        req = urllib.request.Request(url, data=payload.encode("utf-8"), headers=self._headers("POST", path, payload), method="POST")
+        payload = json.dumps(payload_dict) if payload_dict is not None else ""
+        data = payload.encode("utf-8") if payload else None
+        req = urllib.request.Request(url, data=data, headers=self._headers(method, path, payload), method=method)
         try:
             with urllib.request.urlopen(req, timeout=10) as r:
                 res = json.loads(r.read().decode("utf-8"))
@@ -284,6 +284,121 @@ class DeltaExchangeClient:
         except Exception as e:
             print(f"[{tag} ERROR] {e}")
             return {"success": False, "status": "REJECTED", "error": str(e)}
+
+    def _post_order(self, payload_dict: Dict[str, Any], tag: str) -> Dict[str, Any]:
+        """Sends a signed POST /v2/orders request to Delta Exchange and captures HTTP error bodies."""
+        return self._request("POST", "/v2/orders", payload_dict, tag)
+
+    def fetch_open_stop_orders(self) -> List[Dict[str, Any]]:
+        """Fetches active/pending stop-loss orders for XAUTUSD from Delta Exchange."""
+        if not self.api_key or not self.api_secret:
+            return []
+        path = f"/v2/orders?product_id={CONFIG['PRODUCT_ID']}&states=open,pending"
+        res = self._request("GET", path, tag="DELTA SL FETCH")
+        if not res.get("success"):
+            return []
+        stop_orders = []
+        for o in res.get("result", []):
+            if o.get("product_id") == CONFIG["PRODUCT_ID"] or o.get("product_symbol") == CONFIG["SYMBOL"]:
+                is_stop = (
+                    o.get("stop_order_type") == "stop_loss_order"
+                    or "stop" in str(o.get("order_type", "")).lower()
+                    or o.get("stop_price") is not None
+                )
+                if is_stop:
+                    stop_orders.append(o)
+        return stop_orders
+
+    def cancel_exchange_sl(self, pos_state: Dict[str, Any]) -> None:
+        """Cancels the resting exchange-side stop-loss order if tracked."""
+        sl_id = pos_state.get("sl_order_id")
+        if not sl_id:
+            return
+        if self.api_key and self.api_secret:
+            self._request("DELETE", "/v2/orders", {
+                "id": sl_id,
+                "product_id": CONFIG["PRODUCT_ID"],
+            }, tag="DELTA SL CANCEL")
+        pos_state["sl_order_id"] = None
+        pos_state["exchange_sl_price"] = None
+
+    def sync_exchange_sl(self, direction: str, delta_lots: int, sl_price: float, pos_state: Dict[str, Any]) -> None:
+        """Places or trails a live reduce-only Stop-Loss order directly on Delta Exchange."""
+        target_sl = round(float(sl_price), 2)
+        sl_str = f"{target_sl:.2f}"
+        side = "sell" if direction == "LONG" else "buy"
+
+        if not self.api_key or not self.api_secret:
+            pos_state["exchange_sl_price"] = target_sl
+            return
+
+        if pos_state.get("sl_order_id") and pos_state.get("exchange_sl_price") == target_sl:
+            return
+
+        if pos_state.get("sl_order_id") is None:
+            existing = self.fetch_open_stop_orders()
+            if existing:
+                pos_state["sl_order_id"] = existing[0].get("id")
+                try:
+                    pos_state["exchange_sl_price"] = round(float(existing[0].get("stop_price") or 0), 2)
+                except (TypeError, ValueError):
+                    pos_state["exchange_sl_price"] = None
+                for extra in existing[1:]:
+                    if extra.get("id"):
+                        self._request("DELETE", "/v2/orders", {
+                            "id": extra["id"],
+                            "product_id": CONFIG["PRODUCT_ID"],
+                        }, tag="DELTA SL DEDUP")
+
+        if pos_state.get("sl_order_id") is not None:
+            if pos_state.get("exchange_sl_price") == target_sl:
+                return
+            upd_res = self._request("PUT", "/v2/orders", {
+                "id": pos_state["sl_order_id"],
+                "product_id": CONFIG["PRODUCT_ID"],
+                "product_symbol": CONFIG["SYMBOL"],
+                "size": int(delta_lots),
+                "stop_price": sl_str,
+            }, tag="DELTA SL UPDATE")
+            if upd_res.get("success"):
+                pos_state["exchange_sl_price"] = target_sl
+                print(f"[DELTA SL UPDATED] Moved exchange SL order #{pos_state['sl_order_id']} -> ${sl_str}")
+                return
+            self.cancel_exchange_sl(pos_state)
+
+        place_res = self._request("POST", "/v2/orders", {
+            "product_id": CONFIG["PRODUCT_ID"],
+            "product_symbol": CONFIG["SYMBOL"],
+            "size": int(delta_lots),
+            "side": side,
+            "order_type": "market_order",
+            "stop_order_type": "stop_loss_order",
+            "stop_price": sl_str,
+            "stop_trigger_method": "mark_price",
+            "reduce_only": True,
+        }, tag="DELTA SL PLACE")
+
+        if not place_res.get("success"):
+            place_res = self._request("POST", "/v2/orders/bracket", {
+                "product_id": CONFIG["PRODUCT_ID"],
+                "product_symbol": CONFIG["SYMBOL"],
+                "stop_loss_order": {
+                    "order_type": "market_order",
+                    "stop_price": sl_str,
+                    "stop_trigger_method": "mark_price",
+                },
+            }, tag="DELTA SL BRACKET")
+
+        if place_res.get("success"):
+            res_obj = place_res.get("result") or {}
+            sl_id = res_obj.get("id") or (res_obj.get("stop_loss_order") or {}).get("id")
+            if not sl_id:
+                fetched = self.fetch_open_stop_orders()
+                if fetched:
+                    sl_id = fetched[0].get("id")
+            pos_state["sl_order_id"] = sl_id
+            pos_state["exchange_sl_price"] = target_sl
+            print(f"[DELTA SL PLACED] Live Exchange SL Order #{sl_id} active @ ${sl_str}")
 
     def place_order(self, direction: str, delta_lots: int, limit_price: float, sl_price: float) -> Dict[str, Any]:
         """Places 50x order in Delta Exchange contracts (lots)."""
@@ -392,6 +507,7 @@ class StrategyController:
         t["fee_usd"] = live_fee
         t["unrealized_pnl_usd"] = round(live_gross - live_fee, 2)
 
+        sl_changed = False
         if is_long:
             fav = h_px - e_px
             if fav > t["peak_fav"]:
@@ -408,26 +524,29 @@ class StrategyController:
             if t["stage"] <= 1 and mfe_r >= 0.54:
                 if (t["hold_mins"] - t["peak_bar"] >= 6) and (c_px >= e_px + 0.33 * sl_dist):
                     lock_px = round(e_px + 0.33 * sl_dist, 2)
-                    if lock_px > cur_sl:
+                    if lock_px > t["cur_sl"]:
                         t["cur_sl"] = lock_px
                         t["stage"] = 1
                         t["stage_reason"] = "SMART_STALL_LOCK"
+                        sl_changed = True
 
             # Breakeven Lock (+1.05R -> +0.45R)
             if t["stage"] <= 1 and mfe_r >= 1.05:
                 be_px = round(e_px + 0.45 * sl_dist, 2)
-                if be_px > cur_sl:
+                if be_px > t["cur_sl"]:
                     t["cur_sl"] = be_px
                     t["stage"] = 2
                     t["stage_reason"] = "BREAKEVEN"
+                    sl_changed = True
 
             # Continuous 40R Chandelier Trail (+2.10R trigger)
             if mfe_r >= 2.10:
                 t["stage"] = 4
                 atr_floor = round(e_px + (mfe_r - 0.85) * sl_dist, 2)
-                if atr_floor > cur_sl and atr_floor < c_px:
+                if atr_floor > t["cur_sl"] and atr_floor < c_px:
                     t["cur_sl"] = atr_floor
                     t["stage_reason"] = "CONTINUOUS_40R_SL_TRAIL"
+                    sl_changed = True
         else: # SHORT
             fav = e_px - l_px
             if fav > t["peak_fav"]:
@@ -444,26 +563,32 @@ class StrategyController:
             if t["stage"] <= 1 and mfe_r >= 0.54:
                 if (t["hold_mins"] - t["peak_bar"] >= 6) and (c_px <= e_px - 0.33 * sl_dist):
                     lock_px = round(e_px - 0.33 * sl_dist, 2)
-                    if lock_px < cur_sl:
+                    if lock_px < t["cur_sl"]:
                         t["cur_sl"] = lock_px
                         t["stage"] = 1
                         t["stage_reason"] = "SMART_STALL_LOCK"
+                        sl_changed = True
 
             # Breakeven Lock
             if t["stage"] <= 1 and mfe_r >= 1.05:
                 be_px = round(e_px - 0.45 * sl_dist, 2)
-                if be_px < cur_sl:
+                if be_px < t["cur_sl"]:
                     t["cur_sl"] = be_px
                     t["stage"] = 2
                     t["stage_reason"] = "BREAKEVEN"
+                    sl_changed = True
 
             # Continuous 40R Chandelier Trail
             if mfe_r >= 2.10:
                 t["stage"] = 4
                 atr_ceil = round(e_px - (mfe_r - 0.85) * sl_dist, 2)
-                if atr_ceil < cur_sl and atr_ceil > c_px:
+                if atr_ceil < t["cur_sl"] and atr_ceil > c_px:
                     t["cur_sl"] = atr_ceil
                     t["stage_reason"] = "CONTINUOUS_40R_SL_TRAIL"
+                    sl_changed = True
+
+        if sl_changed:
+            DELTA.sync_exchange_sl(t["direction"], t["delta_lots"], t["cur_sl"], t)
 
         # ⏱️ 180-Minute Time Cycle Exit Rule
         if t["hold_mins"] >= CONFIG["MAX_HOLD_MINS"]:
@@ -477,6 +602,9 @@ class StrategyController:
         if now_ts - t.get("last_close_attempt_ts", 0) < 5:
             return
         t["last_close_attempt_ts"] = now_ts
+
+        # Cancel resting exchange stop-loss before market exit
+        DELTA.cancel_exchange_sl(t)
 
         # Execute live exit order on Delta Exchange India (reduce_only)
         exit_res = DELTA.close_order(t["direction"], t["delta_lots"])
@@ -517,7 +645,7 @@ class StrategyController:
         print(f"[TRADE CLOSED #{closed['id']}] {closed['direction']} Exit @ {exit_px:.2f} ({reason}) | PnL: ${net:+.2f} ({r_mult:+.2f}R)")
 
     def sync_exchange_position(self):
-        """Reconciles RAM active_position with live open position on Delta Exchange India."""
+        """Reconciles RAM active_position and exchange-side SL with live open position on Delta Exchange India."""
         pos = DELTA.fetch_open_position()
         if pos is None:
             return
@@ -612,11 +740,20 @@ class StrategyController:
                     "r_multiple": round(pts / sl_dist, 2),
                     "fee_usd": fee,
                     "unrealized_pnl_usd": upnl,
+                    "sl_order_id": None,
+                    "exchange_sl_price": None,
                 }
                 print(f"[SYNC] Adopted live Delta position #{MARKET.active_position['id']}: {direction} {lots} Lots @ ${pos_entry:.2f}")
+                DELTA.sync_exchange_sl(direction, lots, cur_sl, MARKET.active_position)
+
+            elif size != 0 and MARKET.active_position is not None:
+                t = MARKET.active_position
+                if t.get("sl_order_id") is None or t.get("exchange_sl_price") != round(t.get("cur_sl", 0), 2):
+                    DELTA.sync_exchange_sl(t["direction"], t["delta_lots"], t["cur_sl"], t)
 
             elif size == 0 and MARKET.active_position is not None:
                 t = MARKET.active_position
+                DELTA.cancel_exchange_sl(t)
                 exit_px = round(MARKET.last_price if MARKET.last_price > 0 else t["entry_price"], 2)
                 is_long = t["direction"] == "LONG"
                 pts = round((exit_px - t["entry_price"]) if is_long else (t["entry_price"] - exit_px), 2)
@@ -625,6 +762,7 @@ class StrategyController:
                 fee = round(0.0001 * t["qty_oz"] * (t["entry_price"] + exit_px), 2)
                 net = round(gross - fee, 2)
                 hold_mins = max(0, int((time.time() - t.get("entry_ts", time.time())) // 60))
+                exit_reason = t.get("stage_reason") or ("STOP_LOSS" if abs(exit_px - t["cur_sl"]) <= 2.0 else "MANUAL_OR_EXCHANGE_EXIT")
 
                 closed = {
                     "id": len(MARKET.closed_trades) + 1,
@@ -644,11 +782,11 @@ class StrategyController:
                     "net_pnl_usd": net,
                     "fee_usd": fee,
                     "hold_mins": hold_mins,
-                    "exit_reason": "MANUAL_OR_EXCHANGE_EXIT",
+                    "exit_reason": exit_reason,
                 }
                 MARKET.save_trade(closed)
                 MARKET.active_position = None
-                print(f"[SYNC CLOSED #{closed['id']}] Exchange flat detected -> Exit @ ${exit_px:.2f} | Net: ${net:+.2f}")
+                print(f"[SYNC CLOSED #{closed['id']}] Exchange flat detected ({exit_reason}) -> Exit @ ${exit_px:.2f} | Net: ${net:+.2f}")
 
     def evaluate_signals(self, bar: Dict[str, Any]):
         """
@@ -862,7 +1000,10 @@ class StrategyController:
                 "r_multiple": 0.0,
                 "fee_usd": round(0.0002 * qty_oz * fill_px, 2),
                 "unrealized_pnl_usd": 0.0,
+                "sl_order_id": None,
+                "exchange_sl_price": None,
             }
+            DELTA.sync_exchange_sl(dir_to_fire, delta_lots, init_sl, MARKET.active_position)
 
 STRATEGY = StrategyController()
 
